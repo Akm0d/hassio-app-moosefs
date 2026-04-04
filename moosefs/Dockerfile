@@ -6,10 +6,13 @@ FROM ${BUILD_FROM} AS builder
 ARG MOOSEFS_VERSION=v4.58.4
 
 RUN apk add --no-cache \
+    autoconf \
+    automake \
     build-base \
     fuse3-dev \
     git \
     libpcap-dev \
+    libtool \
     linux-headers \
     pkgconf \
     python3 \
