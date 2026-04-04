@@ -8,7 +8,8 @@ startup: services
 boot: auto
 init: false
 ingress: true
-ingress_port: 9425
+ingress_port: 8099
+webui: http://[HOST]:[PORT:9425]/
 panel_title: MooseFS
 panel_icon: mdi:folder-network
 apparmor: false
@@ -20,14 +21,9 @@ devices:
 privileged:
   - SYS_ADMIN
 ports:
-  8099/tcp: null
+  9425/tcp: 9425
 ports_description:
-  8099/tcp: MooseFS Web UI
-map:
-  - type: media
-    read_only: false
-  - type: share
-    read_only: false
+  9425/tcp: MooseFS GUI Direct
 options:
   log_level: info
   master_host: ""
@@ -37,7 +33,6 @@ options:
   mount_point: /mnt/mfs
   mount_enabled: true
   delayed_init: true
-  allow_direct_webui: false
 schema:
   log_level: list(trace|debug|info|notice|warning|error|fatal)
   master_host: str
@@ -47,4 +42,3 @@ schema:
   mount_point: match(^/.+$)
   mount_enabled: bool
   delayed_init: bool
-  allow_direct_webui: bool

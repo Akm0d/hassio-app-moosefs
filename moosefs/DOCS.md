@@ -7,10 +7,11 @@ the client mount is down or still reconnecting.
 ## What It Does
 
 - Builds MooseFS from upstream source for the add-on image.
-- Starts `mfsgui` inside the container on `0.0.0.0:9425` for Home Assistant
-  Ingress.
-- Optionally publishes the same GUI through `lighttpd` on port `8099` for
-  direct browser access outside Ingress.
+- Starts `mfsgui` inside the container on `0.0.0.0:9425`.
+- Uses `lighttpd` on port `8099` only for Home Assistant Ingress/sidebar
+  access.
+- Exposes the raw MooseFS GUI directly on `http://<home-assistant-host>:9425/`
+  for the `OPEN WEB UI` button.
 - Mounts MooseFS with `mfsmount` into a writable path that defaults to
   `/mnt/mfs`.
 - Keeps retrying the mount in the background instead of failing the whole
@@ -35,7 +36,6 @@ master_password: ""
 mount_point: /mnt/mfs
 mount_enabled: true
 delayed_init: true
-allow_direct_webui: false
 ```
 
 ### Option: `master_host`
@@ -71,12 +71,6 @@ The default is intentionally internal to the add-on container. MooseFS uses a
 nested FUSE mount, and Home Assistant does not reliably surface those nested
 mounts back onto the host through add-on bind mappings.
 
-The add-on still exposes the Home Assistant `/media` and `/share` folders if
-you want to experiment with mounting there, but whether the nested FUSE mount
-propagates back to the host depends on Supervisor bind propagation. If you pick
-one of those mapped paths, the add-on logs a warning when the parent path does
-not appear to be using shared or slave propagation.
-
 ### Option: `mount_enabled`
 
 Enables or disables the MooseFS client mount loop. When disabled, the GUI still
@@ -88,38 +82,11 @@ Adds MooseFS delayed initialization to the mount so the client can come up even
 before the master is reachable. This is enabled by default to keep boot more
 resilient.
 
-### Option: `allow_direct_webui`
+## Access Paths
 
-When `false`, the reverse proxy only accepts requests from Home Assistant
-Ingress. When `true`, the add-on will also allow direct access through the
-optional port mapping for `8099/tcp`.
-
-If you enable this, also enable the `8099/tcp` network port in the add-on's
-Network settings.
-
-## Home Assistant Storage
-
-Home Assistant network storage only supports NFS and Samba/CIFS targets. When
-you add one of those in `Settings > System > Storage`, Home Assistant creates a
-directory for it under `/media` or `/share`.
-
-Because this add-on mounts MooseFS through FUSE inside the add-on container, it
-does not automatically become a Home Assistant network storage target, and this
-add-on does not currently auto-export that mount back to Home Assistant over
-NFS or Samba.
-
-If you need Home Assistant to treat MooseFS as network storage, use one of
-these patterns:
-
-1. Mount MooseFS on another machine and export it over NFS or Samba/CIFS, then
-   add that export in `Settings > System > Storage`.
-1. Mount MooseFS inside this add-on at `/mnt/mfs` and use a separate exporter
-   solution that you manage yourself to publish `/mnt/mfs` over NFS or Samba.
-
-This add-on does not automate the second pattern because Home Assistant cannot
-self-register arbitrary exports as storage, and an in-container NFS/Samba
-server needs additional service and kernel-level setup that is outside the
-current add-on scope.
+- Home Assistant sidebar tab: goes through Ingress to the add-on proxy on
+  `8099`.
+- `OPEN WEB UI`: goes directly to `http://<home-assistant-host>:9425/`.
 
 ## Notes
 
@@ -133,7 +100,9 @@ current add-on scope.
 - If `master_host` is empty or cannot be resolved from the add-on container,
   the add-on leaves the GUI running and skips mount attempts until the setting
   is corrected.
-- Home Assistant Ingress is the primary supported UI path.
+- If the Home Assistant sidebar still shows `404 Not Found`, use `OPEN WEB UI`
+  instead. The raw MooseFS GUI at port `9425` does not depend on Ingress path
+  rewriting.
 
 ## Changelog & Releases
 

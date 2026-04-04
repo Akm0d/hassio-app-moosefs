@@ -117,8 +117,6 @@ PY
 }
 
 write_proxy_config() {
-    local allow_direct_webui="${1}"
-
     cat <<'EOF' > /etc/lighttpd/lighttpd.conf
 server.modules = (
     "mod_access",
@@ -145,49 +143,14 @@ proxy.server = (
         )
     )
 )
-EOF
-
-    if ! is_true "${allow_direct_webui}"; then
-        cat <<'EOF' >> /etc/lighttpd/lighttpd.conf
 
 $HTTP["remoteip"] != "172.30.32.2" {
     url.access-deny = ( "" )
 }
 EOF
-    fi
-}
-
-check_mapped_path_propagation() {
-    local mount_point="${1}"
-    local parent_path
-    local propagation
-
-    case "${mount_point}" in
-        /media/*|/media)
-            parent_path="/media"
-            ;;
-        /share/*|/share)
-            parent_path="/share"
-            ;;
-        *)
-            return
-            ;;
-    esac
-
-    propagation="$(findmnt -n -o PROPAGATION --target "${parent_path}" 2>/dev/null || true)"
-    case "${propagation}" in
-        shared|rshared|slave|rslave)
-            bashio::log.info "Mount propagation for ${parent_path} detected as: ${propagation}"
-            ;;
-        *)
-            bashio::log.warning \
-                "Mount propagation for ${parent_path} is '${propagation:-unknown}'. Nested MooseFS mounts may stay private to the add-on and not appear on the host."
-            ;;
-    esac
 }
 
 main() {
-    local allow_direct_webui
     local delayed_init
     local log_level
     local master_host
@@ -206,7 +169,6 @@ main() {
     mount_point="$(bashio::config 'mount_point')"
     mount_enabled="$(bashio::config 'mount_enabled')"
     delayed_init="$(bashio::config 'delayed_init')"
-    allow_direct_webui="$(bashio::config 'allow_direct_webui')"
     mfsgui_log_level="$(to_mfsgui_log_level "${log_level}")"
 
     bashio::log.info "Preparing MooseFS runtime configuration"
@@ -236,8 +198,7 @@ main() {
         "${master_password}"
     write_gui_config "${mfsgui_log_level}"
     patch_gui_defaults "${master_host}" "${master_port}"
-    write_proxy_config "${allow_direct_webui}"
-    check_mapped_path_propagation "${mount_point}"
+    write_proxy_config
 
     if is_true "${mount_enabled}" && [[ ! -e /dev/fuse ]]; then
         bashio::log.error "/dev/fuse is not available; the MooseFS mount service will keep retrying until it appears"
