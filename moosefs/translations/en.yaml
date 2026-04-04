@@ -5,7 +5,7 @@ configuration:
     description: Control how much detail the add-on writes to its log.
   master_host:
     name: MooseFS master host
-    description: Hostname or IP address of the MooseFS master server.
+    description: Resolvable hostname or IP address of the MooseFS master server.
   master_port:
     name: MooseFS master port
     description: Client port on the MooseFS master.

@@ -76,6 +76,46 @@ REQUESTS_FILE = requests.cfg
 EOF
 }
 
+patch_gui_defaults() {
+    local cgi_path="/usr/share/mfscgi/mfs.cgi"
+    local master_host="${1}"
+    local master_port="${2}"
+
+    if [[ ! -f "${cgi_path}" ]]; then
+        bashio::log.warning "MooseFS CGI entrypoint is missing at ${cgi_path}; the GUI will use upstream defaults"
+        return
+    fi
+
+    python3 - "${cgi_path}" "${master_host}" "${master_port}" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+path = Path(sys.argv[1])
+master_host = sys.argv[2]
+master_port = int(sys.argv[3])
+text = path.read_text(encoding="utf-8")
+
+updated = re.sub(
+    r"^masterhost = .*$",
+    f"masterhost = {master_host!r}",
+    text,
+    count=1,
+    flags=re.MULTILINE,
+)
+updated = re.sub(
+    r"^masterport = .*$",
+    f"masterport = {master_port}",
+    updated,
+    count=1,
+    flags=re.MULTILINE,
+)
+
+if updated != text:
+    path.write_text(updated, encoding="utf-8")
+PY
+}
+
 write_proxy_config() {
     local allow_direct_webui="${1}"
 
@@ -89,8 +129,6 @@ server.document-root = "/usr/share/mfscgi"
 server.errorlog = "/dev/stderr"
 server.port = 8099
 server.bind = "0.0.0.0"
-server.username = "root"
-server.groupname = "root"
 
 proxy.server = (
     "" => (
@@ -156,8 +194,14 @@ main() {
     mfsgui_log_level="$(to_mfsgui_log_level "${log_level}")"
 
     bashio::log.info "Preparing MooseFS runtime configuration"
-    bashio::log.info "MooseFS master: ${master_host}:${master_port}${master_subfolder}"
     bashio::log.info "Mount point: ${mount_point}"
+
+    if [[ -n "${master_host}" ]]; then
+        bashio::log.info "MooseFS master: ${master_host}:${master_port}${master_subfolder}"
+    else
+        bashio::log.warning \
+            "MooseFS master host is not configured yet; the GUI will stay up, but mount attempts will be skipped until master_host is set"
+    fi
 
     mkdir -p \
         /etc/mfs \
@@ -175,6 +219,7 @@ main() {
         "${delayed_init}" \
         "${master_password}"
     write_gui_config "${mfsgui_log_level}"
+    patch_gui_defaults "${master_host}" "${master_port}"
     write_proxy_config "${allow_direct_webui}"
     check_share_propagation "${mount_point}"
 

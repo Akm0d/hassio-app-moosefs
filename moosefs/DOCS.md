@@ -19,7 +19,7 @@ the client mount is down or still reconnecting.
 
 1. Add this repository to Home Assistant.
 1. Install the `MooseFS` add-on.
-1. Set at least `master_host`.
+1. Set `master_host` to a resolvable DNS name or IP address for your MooseFS master.
 1. Start the add-on.
 1. Open the add-on panel from Home Assistant or use `OPEN WEB UI`.
 
@@ -39,7 +39,10 @@ allow_direct_webui: false
 
 ### Option: `master_host`
 
-Hostname or IP address of the MooseFS master.
+Resolvable hostname or IP address of the MooseFS master.
+
+Leave this empty until you know the correct value. The GUI will still start,
+but the add-on will skip mount attempts until `master_host` is configured.
 
 ### Option: `master_port`
 
@@ -91,6 +94,9 @@ Network settings.
   MooseFS client uses FUSE mounts.
 - If the mount fails, the add-on keeps the web UI alive and retries the mount
   every 15 seconds.
+- If `master_host` is empty or cannot be resolved from the add-on container,
+  the add-on leaves the GUI running and skips mount attempts until the setting
+  is corrected.
 - Home Assistant Ingress is the primary supported UI path.
 
 ## Changelog & Releases
