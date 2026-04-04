@@ -1,0 +1,31 @@
+# Home Assistant Add-on: MooseFS
+
+[![Release][release-shield]][release] ![Project Stage][project-stage-shield]
+
+Mount a MooseFS share from Home Assistant and expose the MooseFS GUI through
+Home Assistant Ingress.
+
+## About
+
+This add-on builds MooseFS from upstream source, starts the MooseFS GUI in the
+container, and runs a supervised `mfsmount` loop that can keep retrying without
+taking down the rest of the add-on.
+
+The default mount path is `/share/moosefs` so the mounted tree can be shared
+with the Home Assistant host when the underlying bind mount propagation allows
+it.
+
+{% if channel == "edge" %}
+## Warning
+
+This is an edge build. Expect incomplete changes and breakage.
+{% endif %}
+{% if channel == "beta" %}
+## Warning
+
+This is a beta build. Expect changes before the stable release.
+{% endif %}
+
+[project-stage-shield]: https://img.shields.io/badge/project%20stage-experimental-orange.svg
+[release-shield]: https://img.shields.io/badge/version-{{ version }}-blue.svg
+[release]: {{ repo }}/tree/{{ version }}

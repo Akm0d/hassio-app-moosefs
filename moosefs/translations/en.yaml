@@ -1,0 +1,31 @@
+---
+configuration:
+  log_level:
+    name: Log level
+    description: Control how much detail the add-on writes to its log.
+  master_host:
+    name: MooseFS master host
+    description: Hostname or IP address of the MooseFS master server.
+  master_port:
+    name: MooseFS master port
+    description: Client port on the MooseFS master.
+  master_subfolder:
+    name: MooseFS subfolder
+    description: MooseFS path to mount. Use / for the full tree.
+  master_password:
+    name: MooseFS password
+    description: Optional export password used when connecting to the master.
+  mount_point:
+    name: Mount point
+    description: Absolute path inside the add-on where MooseFS should be mounted.
+  mount_enabled:
+    name: Enable mount loop
+    description: Keep the MooseFS client mount active in the background.
+  delayed_init:
+    name: Delayed init
+    description: Allow the mount to come up before the master is reachable.
+  allow_direct_webui:
+    name: Allow direct Web UI
+    description: Allow requests outside Home Assistant Ingress on port 8099.
+network:
+  8099/tcp: MooseFS Web UI
