@@ -8,7 +8,7 @@ startup: services
 boot: auto
 init: false
 ingress: true
-ingress_port: 8099
+ingress_port: 9425
 panel_title: MooseFS
 panel_icon: mdi:folder-network
 apparmor: false
@@ -34,7 +34,7 @@ options:
   master_port: 9421
   master_subfolder: /
   master_password: ""
-  mount_point: /media/mfs
+  mount_point: /mnt/mfs
   mount_enabled: true
   delayed_init: true
   allow_direct_webui: false
