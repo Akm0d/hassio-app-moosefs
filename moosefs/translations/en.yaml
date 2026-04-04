@@ -8,7 +8,7 @@ configuration:
     description: Resolvable hostname or IP address of the MooseFS master server.
   master_port:
     name: MooseFS master port
-    description: Client port on the MooseFS master.
+    description: MooseFS client protocol port on the master server, usually 9421 and not the web UI port.
   master_subfolder:
     name: MooseFS subfolder
     description: MooseFS path to mount. Use / for the full tree.

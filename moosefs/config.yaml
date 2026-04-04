@@ -24,6 +24,8 @@ ports:
 ports_description:
   8099/tcp: MooseFS Web UI
 map:
+  - type: media
+    read_only: false
   - type: share
     read_only: false
 options:
@@ -32,7 +34,7 @@ options:
   master_port: 9421
   master_subfolder: /
   master_password: ""
-  mount_point: /share/moosefs
+  mount_point: /media/mfs
   mount_enabled: true
   delayed_init: true
   allow_direct_webui: false

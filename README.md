@@ -5,8 +5,8 @@ with `mfsmount` and exposes the MooseFS GUI through Home Assistant Ingress.
 
 The add-on is designed so the GUI can stay up even if the FUSE mount is broken
 or the master is unavailable during boot. By default it mounts MooseFS at
-`/share/moosefs`, which gives the best chance of making the mounted tree
-available to the Home Assistant host as well.
+`/media/mfs`, and it also exposes the Home Assistant `/share` folder if you
+prefer to mount there instead.
 
 See [the add-on documentation](./moosefs/DOCS.md) for installation and
 configuration details.

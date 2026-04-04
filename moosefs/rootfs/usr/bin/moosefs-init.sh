@@ -122,13 +122,20 @@ write_proxy_config() {
     cat <<'EOF' > /etc/lighttpd/lighttpd.conf
 server.modules = (
     "mod_access",
-    "mod_proxy"
+    "mod_proxy",
+    "mod_rewrite"
 )
 
 server.document-root = "/usr/share/mfscgi"
 server.errorlog = "/dev/stderr"
 server.port = 8099
 server.bind = "0.0.0.0"
+
+# Strip the Home Assistant ingress session prefix before forwarding to mfsgui.
+url.rewrite-once = (
+    "^/(api/)?hassio_ingress/[^/]+$" => "/",
+    "^/(api/)?hassio_ingress/[^/]+/(.*)$" => "/$2"
+)
 
 proxy.server = (
     "" => (
@@ -150,22 +157,31 @@ EOF
     fi
 }
 
-check_share_propagation() {
+check_mapped_path_propagation() {
     local mount_point="${1}"
+    local parent_path
     local propagation
 
-    if [[ "${mount_point}" != /share* ]]; then
-        return
-    fi
+    case "${mount_point}" in
+        /media/*|/media)
+            parent_path="/media"
+            ;;
+        /share/*|/share)
+            parent_path="/share"
+            ;;
+        *)
+            return
+            ;;
+    esac
 
-    propagation="$(findmnt -n -o PROPAGATION --target /share 2>/dev/null || true)"
+    propagation="$(findmnt -n -o PROPAGATION --target "${parent_path}" 2>/dev/null || true)"
     case "${propagation}" in
         shared|rshared|slave|rslave)
-            bashio::log.info "Share mount propagation detected as: ${propagation}"
+            bashio::log.info "Mount propagation for ${parent_path} detected as: ${propagation}"
             ;;
         *)
             bashio::log.warning \
-                "Share mount propagation is '${propagation:-unknown}'. Nested MooseFS mounts may stay private to the add-on and not appear on the host."
+                "Mount propagation for ${parent_path} is '${propagation:-unknown}'. Nested MooseFS mounts may stay private to the add-on and not appear on the host."
             ;;
     esac
 }
@@ -197,7 +213,7 @@ main() {
     bashio::log.info "Mount point: ${mount_point}"
 
     if [[ -n "${master_host}" ]]; then
-        bashio::log.info "MooseFS master: ${master_host}:${master_port}${master_subfolder}"
+        bashio::log.info "MooseFS master client endpoint: ${master_host}:${master_port}${master_subfolder}"
     else
         bashio::log.warning \
             "MooseFS master host is not configured yet; the GUI will stay up, but mount attempts will be skipped until master_host is set"
@@ -221,7 +237,7 @@ main() {
     write_gui_config "${mfsgui_log_level}"
     patch_gui_defaults "${master_host}" "${master_port}"
     write_proxy_config "${allow_direct_webui}"
-    check_share_propagation "${mount_point}"
+    check_mapped_path_propagation "${mount_point}"
 
     if is_true "${mount_enabled}" && [[ ! -e /dev/fuse ]]; then
         bashio::log.error "/dev/fuse is not available; the MooseFS mount service will keep retrying until it appears"

@@ -11,7 +11,7 @@ the client mount is down or still reconnecting.
 - Publishes the GUI through `lighttpd` on port `8099` for Home Assistant
   Ingress.
 - Mounts MooseFS with `mfsmount` into a writable path that defaults to
-  `/share/moosefs`.
+  `/media/mfs`.
 - Keeps retrying the mount in the background instead of failing the whole
   add-on startup.
 
@@ -31,7 +31,7 @@ master_host: mfsmaster.lan
 master_port: 9421
 master_subfolder: /
 master_password: ""
-mount_point: /share/moosefs
+mount_point: /media/mfs
 mount_enabled: true
 delayed_init: true
 allow_direct_webui: false
@@ -46,7 +46,11 @@ but the add-on will skip mount attempts until `master_host` is configured.
 
 ### Option: `master_port`
 
-Client port on the MooseFS master. Default: `9421`.
+Client protocol port on the MooseFS master. Default: `9421`.
+
+This is not the web UI port. The MooseFS GUI typically listens on `9425`,
+while `mfsmount` and `mfscli` talk to the master client port, which is usually
+`9421`.
 
 ### Option: `master_subfolder`
 
@@ -60,13 +64,14 @@ one.
 ### Option: `mount_point`
 
 Absolute path inside the add-on container where MooseFS should be mounted.
-Default: `/share/moosefs`.
+Default: `/media/mfs`.
 
-If you keep the default, the add-on mounts into Home Assistant's shared folder
-mapping. That is the best path for making the mount visible on the host, but
-whether the nested FUSE mount propagates back to the host depends on the bind
-propagation configured by Supervisor on that system. The add-on logs a warning
-when `/share` does not appear to be using shared or slave propagation.
+If you keep the default, the add-on mounts into Home Assistant's media folder
+mapping. The add-on also exposes `/share` if you prefer that layout, but
+whether a nested FUSE mount propagates back to the host still depends on the
+bind propagation configured by Supervisor on that system. The add-on logs a
+warning when the parent mapped path does not appear to be using shared or
+slave propagation.
 
 ### Option: `mount_enabled`
 
