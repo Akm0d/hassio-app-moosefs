@@ -6,13 +6,10 @@ FROM ${BUILD_FROM} AS builder
 ARG MOOSEFS_VERSION=v4.58.4
 
 RUN apk add --no-cache \
-    autoconf \
-    automake \
     build-base \
     fuse3-dev \
     git \
     libpcap-dev \
-    libtool \
     linux-headers \
     pkgconf \
     python3 \
@@ -20,7 +17,18 @@ RUN apk add --no-cache \
     && git clone --branch "${MOOSEFS_VERSION}" --depth 1 \
         https://github.com/moosefs/moosefs.git /tmp/moosefs \
     && cd /tmp/moosefs \
-    && ./linux_build.sh \
+    && ./configure \
+        --prefix=/usr \
+        --mandir=/share/man \
+        --sysconfdir=/etc \
+        --localstatedir=/var/lib \
+        --with-default-user=mfs \
+        --with-default-group=mfs \
+        --disable-mfsmaster \
+        --disable-mfsmetalogger \
+        --disable-mfschunkserver \
+        --disable-mfsnetdump \
+        --disable-mfsbdev \
     && make install DESTDIR=/tmp/moosefs-install
 
 # hadolint ignore=DL3006
@@ -38,7 +46,6 @@ RUN apk add --no-cache \
     fuse3 \
     libpcap \
     lighttpd \
-    lighttpd-mod_proxy \
     python3 \
     util-linux \
     zlib \

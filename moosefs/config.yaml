@@ -28,7 +28,7 @@ map:
     read_only: false
 options:
   log_level: info
-  master_host: null
+  master_host: mfsmaster
   master_port: 9421
   master_subfolder: /
   master_password: ""
