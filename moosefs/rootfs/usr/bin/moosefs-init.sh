@@ -74,12 +74,64 @@ GUISERV_LISTEN_PORT = 9425
 EOF
 }
 
+find_gui_entrypoint() {
+    find /usr/share -type f -name 'mfs.cgi' -print -quit 2>/dev/null || true
+}
+
+patch_gui_defaults() {
+    local master_host="${1}"
+    local master_port="${2}"
+    local cgi_path
+
+    if [[ -z "${master_host}" ]]; then
+        return
+    fi
+
+    cgi_path="$(find_gui_entrypoint)"
+    if [[ -z "${cgi_path}" ]]; then
+        bashio::log.warning \
+            "Unable to locate mfs.cgi under /usr/share; MooseFS GUI will keep its upstream master defaults"
+        return
+    fi
+
+    python3 - "${cgi_path}" "${master_host}" "${master_port}" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+path = Path(sys.argv[1])
+master_host = sys.argv[2]
+master_port = int(sys.argv[3])
+text = path.read_text(encoding="utf-8")
+
+updated = re.sub(
+    r"^masterhost = .*$",
+    f"masterhost = {master_host!r}",
+    text,
+    count=1,
+    flags=re.MULTILINE,
+)
+updated = re.sub(
+    r"^masterport = .*$",
+    f"masterport = {master_port}",
+    updated,
+    count=1,
+    flags=re.MULTILINE,
+)
+
+if updated != text:
+    path.write_text(updated, encoding="utf-8")
+PY
+
+    bashio::log.info "Patched MooseFS GUI defaults in ${cgi_path} to ${master_host}:${master_port}"
+}
+
 log_host_mount_mapping() {
     local mount_point="${1}"
 
     if [[ "${mount_point}" == /mnt/* ]]; then
         bashio::log.info \
-            "Mount points under /mnt are backed by Home Assistant's share directory; ${mount_point} will be exposed to the host share tree as /share${mount_point#/mnt}"
+            "Mount points under /mnt are backed by Home Assistant's share directory at /share${mount_point#/mnt}; whether a nested MooseFS FUSE mount becomes visible on the host depends on Supervisor mount propagation"
     else
         bashio::log.warning \
             "Mount point ${mount_point} is outside /mnt, so the MooseFS mount will stay internal to the add-on container"
@@ -101,7 +153,9 @@ server.bind = "0.0.0.0"
 
 # Strip the Home Assistant ingress session prefix before forwarding to mfsgui.
 url.rewrite-once = (
-    "^/(api/)?hassio_ingress/[^/]+$" => "/",
+    "^/$" => "/mfs.cgi",
+    "^/(api/)?hassio_ingress/[^/]+$" => "/mfs.cgi",
+    "^/(api/)?hassio_ingress/[^/]+/$" => "/mfs.cgi",
     "^/(api/)?hassio_ingress/[^/]+/(.*)$" => "/$2"
 )
 
@@ -168,6 +222,7 @@ main() {
         "${delayed_init}" \
         "${master_password}"
     write_gui_config "${mfsgui_log_level}"
+    patch_gui_defaults "${master_host}" "${master_port}"
     write_proxy_config
 
     if is_true "${mount_enabled}" && [[ ! -e /dev/fuse ]]; then
