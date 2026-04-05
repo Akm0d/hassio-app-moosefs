@@ -2,7 +2,7 @@
 name: MooseFS
 version: 0.1
 slug: moosefs
-description: Mount a MooseFS share on Home Assistant, expose the MooseFS GUI, and export the mount over NFSv4
+description: Mount a MooseFS share on Home Assistant, expose the MooseFS GUI, and export the mount over NFS
 url: https://github.com/Akm0d/hassio-app-moosefs
 startup: services
 boot: auto
@@ -28,7 +28,7 @@ ports:
   2049/tcp: 2049
   9425/tcp: 9425
 ports_description:
-  2049/tcp: MooseFS NFSv4 Export
+  2049/tcp: MooseFS NFS Export
   9425/tcp: MooseFS GUI Direct
 options:
   log_level: info
@@ -39,7 +39,7 @@ options:
   mount_point: /mnt/mfs
   backup_dir: ""
   media_dir: ""
-  share_dir: ""
+  share_dir: /
   mount_enabled: true
   delayed_init: true
 schema:

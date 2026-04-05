@@ -64,10 +64,10 @@ def normalize_relative_dir(
     return "/".join(parts)
 
 
-def nfs_path(relative_dir: str) -> str:
+def export_path(mount_point: Path, relative_dir: str) -> str:
     if relative_dir == "":
-        return "/"
-    return f"/{relative_dir}"
+        return mount_point.as_posix()
+    return mount_point.joinpath(*relative_dir.split("/")).as_posix()
 
 
 def ensure_directory(mount_point: Path, relative_dir: str | None, purpose: str) -> None:
@@ -207,7 +207,10 @@ def main() -> int:
     ensure_directory(mount_point, backup_dir, "backup")
 
     mounts_info = api_request(token, "GET", "/mounts") or {}
-    log("INFO", f"Using local host-network NFS endpoint {LOCAL_NFS_SERVER}:2049 for Supervisor mounts")
+    log(
+        "INFO",
+        f"Using local host-network NFS endpoint {LOCAL_NFS_SERVER}:2049 for Supervisor mounts rooted at {mount_point}",
+    )
     existing_mounts = {
         mount["name"]: mount
         for mount in mounts_info.get("mounts", [])
@@ -238,7 +241,7 @@ def main() -> int:
             name=name,
             usage=usage,
             server=LOCAL_NFS_SERVER,
-            path=nfs_path(relative_dir),
+            path=export_path(mount_point, relative_dir),
         )
 
         if usage == "backup" and default_backup_mount != name:

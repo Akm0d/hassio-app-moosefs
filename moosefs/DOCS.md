@@ -15,7 +15,7 @@ the client mount is down or still reconnecting.
 - Mounts MooseFS with `mfsmount` into a writable path that defaults to
   `/mnt/mfs` inside the add-on container.
 - Runs on the Home Assistant host network for stable host-facing ports.
-- Exports the MooseFS mount over NFSv4 on host TCP port `2049`.
+- Exports the MooseFS mount over NFS on host TCP port `2049`.
 - Automatically registers Home Assistant Supervisor network storage mounts for
   `share`, `media`, and `backup` when their configured subfolders are enabled.
 - Keeps retrying the mount in the background instead of failing the whole
@@ -75,7 +75,7 @@ Absolute path inside the add-on container where MooseFS should be mounted.
 Default: `/mnt/mfs`.
 
 The MooseFS client mount is intentionally internal to the add-on container.
-This add-on exports that internal mount over NFSv4 instead of trying to
+This add-on exports that internal mount over NFS instead of trying to
 propagate the FUSE mount back through a Home Assistant host bind.
 
 If you change `mount_point`, the NFS export follows that exact internal path.
@@ -128,15 +128,15 @@ resilient.
 - Home Assistant sidebar tab: goes through Home Assistant Ingress to the
   `lighttpd` proxy on host port `8099`.
 - `OPEN WEB UI`: goes directly to `http://<home-assistant-host>:9425/mfs.cgi`.
-- NFSv4 export root: `server:/` on host TCP `2049`, backed by the internal
-  MooseFS mount at `/mnt/mfs`.
+- NFS export root path: `server:/mnt/mfs` on host TCP `2049`, backed by the
+  internal MooseFS mount at `/mnt/mfs`.
 - Home Assistant `share`, `media`, and `backup` storage can be auto-mounted by
   Supervisor from configured subdirectories inside that NFS export.
 
 ## Home Assistant Storage Mapping
 
-This add-on keeps one internal NFSv4 export rooted at the MooseFS mount point
-and then asks Supervisor to mount selected subdirectories back into Home
+This add-on keeps one internal NFS export rooted at the MooseFS mount point
+and then asks Supervisor to mount selected server paths back into Home
 Assistant storage. Because the add-on uses `host_network: true`, these
 Supervisor-managed mounts target `127.0.0.1:2049` on the Home Assistant host
 instead of a changing container IP.
@@ -151,7 +151,7 @@ backup_dir: backups
 
 That results in:
 
-- Supervisor mount `moosefs_share` using the root of `/mnt/mfs`
+- Supervisor mount `moosefs_share` using `/mnt/mfs`
 - Supervisor mount `moosefs_media` using `/mnt/mfs/plex/movies`
 - Supervisor mount `moosefs_backup` using `/mnt/mfs/backups`
 
@@ -169,13 +169,13 @@ access, you can still mount the add-on export manually with:
 
 ```sh
 mkdir -p /mnt/mfs
-mount -t nfs4 -o vers=4.2,proto=tcp <home-assistant-host>:/ /mnt/mfs
+mount -t nfs -o nfsvers=4.2,proto=tcp <home-assistant-host>:/mnt/mfs /mnt/mfs
 ```
 
 Example:
 
 ```sh
-mount -t nfs4 -o vers=4.2,proto=tcp hearth.goose-stargazer.ts.net:/ /mnt/mfs
+mount -t nfs -o nfsvers=4.2,proto=tcp hearth.goose-stargazer.ts.net:/mnt/mfs /mnt/mfs
 ```
 
 The NFS export is read-write and intentionally uses `no_root_squash` so a root
@@ -189,8 +189,8 @@ When adding this export manually in `Settings > System > Storage`:
 - `Protocol`: `NFS`
 - `Server`: use the Home Assistant host IP/hostname, or `127.0.0.1` because
   the add-on now runs on the host network
-- `Remote share path`: `/` for the MooseFS root, `/backups` for
-  `/mnt/mfs/backups`, `/plex/movies` for `/mnt/mfs/plex/movies`, and so on
+- `Remote share path`: `/mnt/mfs` for the MooseFS root,
+  `/mnt/mfs/backups` for backups, `/mnt/mfs/plex/movies` for media, and so on
 
 If you want to manage a given storage target manually in the UI, leave the
 matching add-on option blank so the automatic Supervisor mount sync does not
@@ -211,10 +211,10 @@ also try to manage it.
   becomes readable, which is the quickest way to confirm that the container can
   actually see files there.
 - The add-on waits for MooseFS to mount and then publishes the same path over
-  NFSv4 using `exportfs`, `rpc.idmapd`, and `rpc.nfsd`.
+  NFS using `rpcbind`, `exportfs`, `rpc.mountd`, `rpc.idmapd`, and `rpc.nfsd`.
 - After NFS comes up, the add-on reconciles three managed Supervisor mount
   names: `moosefs_share`, `moosefs_media`, and `moosefs_backup`, targeting
-  `127.0.0.1:2049`.
+  `127.0.0.1:2049` with server paths rooted at `/mnt/mfs`.
 - If `master_host` is empty or cannot be resolved from the add-on container,
   the add-on leaves the GUI running and skips mount attempts until the setting
   is corrected.

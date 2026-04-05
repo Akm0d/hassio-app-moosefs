@@ -17,7 +17,7 @@ configuration:
     description: Optional export password used when connecting to the master.
   mount_point:
     name: Mount point
-    description: Absolute path inside the add-on where MooseFS should be mounted. The add-on exports this internal path over NFSv4 instead of exposing a host bind mount.
+    description: Absolute path inside the add-on where MooseFS should be mounted. The add-on exports this internal path over NFS instead of exposing a host bind mount.
   backup_dir:
     name: Backup directory
     description: Relative directory inside the MooseFS mount to register as the Home Assistant backup storage. Leave empty to disable it.
@@ -34,4 +34,4 @@ configuration:
     name: Delayed init
     description: Allow the mount to come up before the master is reachable.
 network:
-  2049/tcp: MooseFS NFSv4 Export
+  2049/tcp: MooseFS NFS Export

@@ -2,7 +2,7 @@
 # shellcheck shell=bash
 # ==============================================================================
 # Home Assistant Add-on: MooseFS
-# Export the MooseFS mount over NFSv4.
+# Export the MooseFS mount over NFS.
 # ==============================================================================
 
 set -euo pipefail
@@ -22,10 +22,12 @@ cleanup() {
 
     set +e
 
-    if [[ -n "${idmapd_pid:-}" ]]; then
-        kill "${idmapd_pid}" 2>/dev/null || true
-        wait "${idmapd_pid}" 2>/dev/null || true
-    fi
+    for pid_var in mountd_pid idmapd_pid rpcbind_pid; do
+        if [[ -n "${!pid_var:-}" ]]; then
+            kill "${!pid_var}" 2>/dev/null || true
+            wait "${!pid_var}" 2>/dev/null || true
+        fi
+    done
 
     exportfs -ua 2>/dev/null || true
     rpc.nfsd 0 2>/dev/null || true
@@ -55,26 +57,56 @@ main() {
 
     trap cleanup EXIT INT TERM
 
-    bashio::log.info "Waiting for MooseFS mount at ${mount_point} before starting NFSv4 export"
+    bashio::log.info "Waiting for MooseFS mount at ${mount_point} before starting NFS export"
     until mount_is_active "${mount_point}"; do
         sleep 2
     done
 
+    mkdir -p /run/rpcbind
     mkdir -p /var/lib/nfs/rpc_pipefs
     mountpoint -q /var/lib/nfs/rpc_pipefs || mount -t rpc_pipefs rpc_pipefs /var/lib/nfs/rpc_pipefs
     mountpoint -q /proc/fs/nfsd || mount -t nfsd nfsd /proc/fs/nfsd
 
-    bashio::log.info "Publishing ${mount_point} as the NFSv4 root export on tcp/2049"
+    if timeout 3 rpcinfo -p 127.0.0.1 >/dev/null 2>&1; then
+        bashio::log.info "Using existing rpcbind service on localhost:111"
+    else
+        bashio::log.info "Starting rpcbind on localhost:111 for NFS service discovery"
+        rpcbind -f -w &
+        rpcbind_pid=$!
+
+        for _ in $(seq 1 10); do
+            if timeout 3 rpcinfo -p 127.0.0.1 >/dev/null 2>&1; then
+                break
+            fi
+            sleep 1
+        done
+
+        if ! timeout 3 rpcinfo -p 127.0.0.1 >/dev/null 2>&1; then
+            bashio::log.error "rpcbind did not become reachable on localhost:111"
+            exit 1
+        fi
+    fi
+
+    bashio::log.info "Publishing ${mount_point} as the NFS export on localhost:2049"
     exportfs -r
 
-    # NFSv4 does not require rpc.mountd, so keep the service to the minimum:
-    # id mapping plus the kernel nfsd threads.
+    bashio::log.info "Starting rpc.mountd and rpc.idmapd for Home Assistant compatibility"
+    rpc.mountd -F -N 2 &
+    mountd_pid=$!
     rpc.idmapd -S -f &
     idmapd_pid=$!
 
-    # Serve NFSv4 only over TCP. rpc.nfsd takes the trailing "8" as the number
-    # of server threads to start.
-    rpc.nfsd -N 3 -U 8
+    # Start a standard Linux NFS server. Keeping both v3 and v4 available makes
+    # Home Assistant's generic mount.nfs client much more predictable.
+    rpc.nfsd 8
+
+    while IFS= read -r line; do
+        [[ -n "${line}" ]] && bashio::log.info "exportfs: ${line}"
+    done < <(exportfs -v 2>/dev/null || true)
+
+    while IFS= read -r line; do
+        [[ -n "${line}" ]] && bashio::log.info "rpcinfo: ${line}"
+    done < <(timeout 5 rpcinfo -p 127.0.0.1 2>/dev/null || true)
 
     if ! python3 /usr/bin/moosefs-supervisor-mounts.py \
         "${mount_point}" \
@@ -82,7 +114,7 @@ main() {
         "${media_dir}" \
         "${backup_dir}"; then
         bashio::log.warning \
-            "Supervisor mount synchronization failed; the NFSv4 export is still live on tcp/2049"
+            "Supervisor mount synchronization failed; the NFS export is still live on tcp/2049"
     fi
 
     wait "${idmapd_pid}"

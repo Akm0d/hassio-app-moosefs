@@ -51,6 +51,7 @@ RUN apk add --no-cache \
     lighttpd \
     nfs-utils \
     python3 \
+    rpcbind \
     util-linux \
     zlib \
     && addgroup -S mfs \
@@ -58,6 +59,7 @@ RUN apk add --no-cache \
     && mkdir -p \
         /mnt/mfs \
         /run/lighttpd \
+        /run/rpcbind \
         /run/moosefs \
         /var/lib/nfs/rpc_pipefs \
         /var/lib/mfs/gui \
