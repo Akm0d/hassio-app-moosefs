@@ -71,7 +71,9 @@ main() {
     rpc.mountd -F -N 2 -N 3 &
     mountd_pid=$!
 
-    rpc.nfsd -N 2 -N 3 -U 8
+    # Alpine's rpc.nfsd only supports disabling NFSv3 explicitly here; passing
+    # "-N 2" causes an "Unsupported version" failure and restarts the service.
+    rpc.nfsd -N 3 -U 8
     wait "${mountd_pid}"
 }
 main "$@"

@@ -8,8 +8,10 @@ the client mount is down or still reconnecting.
 
 - Builds MooseFS from upstream source for the add-on image.
 - Starts `mfsgui` inside the container on `0.0.0.0:9425`.
+- Uses `lighttpd` on internal port `8099` for Home Assistant Ingress/sidebar
+  access.
 - Exposes the raw MooseFS GUI directly on `http://<home-assistant-host>:9425/`
-  via `/mfs.cgi` for both Home Assistant Ingress and the `OPEN WEB UI` button.
+  via `/mfs.cgi` for the `OPEN WEB UI` button.
 - Mounts MooseFS with `mfsmount` into a writable path that defaults to
   `/mnt/mfs` inside the add-on container.
 - Exports the MooseFS mount over NFSv4 on TCP port `2049` so clients can mount
@@ -86,8 +88,8 @@ resilient.
 
 ## Access Paths
 
-- Home Assistant sidebar tab: goes directly to MooseFS GUI on `9425` via
-  Home Assistant Ingress using `/mfs.cgi`.
+- Home Assistant sidebar tab: goes through Home Assistant Ingress to the
+  `lighttpd` proxy on `8099`.
 - `OPEN WEB UI`: goes directly to `http://<home-assistant-host>:9425/mfs.cgi`.
 - NFSv4 export root: `server:/` on TCP `2049`, backed by the internal
   MooseFS mount at `/mnt/mfs`.
@@ -128,7 +130,8 @@ trusted clients only.
   the add-on leaves the GUI running and skips mount attempts until the setting
   is corrected.
 - If the Home Assistant sidebar still shows `404 Not Found`, inspect the add-on
-  logs and confirm `mfsgui` itself is serving `mfs.cgi` on port `9425`.
+  logs and confirm `lighttpd` is listening on `8099` and proxying to `mfsgui`
+  on `9425`.
 
 ## Changelog & Releases
 

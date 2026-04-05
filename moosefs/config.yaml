@@ -8,7 +8,7 @@ startup: services
 boot: auto
 init: false
 ingress: true
-ingress_port: 9425
+ingress_port: 8099
 ingress_entry: /mfs.cgi
 apparmor: true
 panel_icon: mdi:cow
