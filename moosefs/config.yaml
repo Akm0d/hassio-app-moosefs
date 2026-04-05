@@ -39,7 +39,7 @@ options:
   mount_point: /mnt/mfs
   backup_dir: ""
   media_dir: ""
-  share_dir: /
+  share_dir: ""
   mount_enabled: true
   delayed_init: true
 schema:

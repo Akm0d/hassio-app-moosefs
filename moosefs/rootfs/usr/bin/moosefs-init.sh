@@ -65,7 +65,7 @@ write_nfs_exports() {
     local mount_point="${1}"
 
     cat <<EOF > /etc/exports
-${mount_point} *(rw,no_subtree_check,no_root_squash,sync,insecure)
+${mount_point} *(rw,fsid=0,no_subtree_check,no_root_squash,sync,insecure)
 EOF
 }
 
