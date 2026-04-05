@@ -61,8 +61,25 @@ EOF
     fi
 }
 
+find_gui_requests_file() {
+    find /usr/share -type f -name 'requests.cfg' -print -quit 2>/dev/null || true
+}
+
+find_gui_root_dir() {
+    local requests_file
+
+    requests_file="$(find_gui_requests_file)"
+    if [[ -z "${requests_file}" ]]; then
+        return
+    fi
+
+    dirname "${requests_file}"
+}
+
 write_gui_config() {
     local mfsgui_log_level="${1}"
+    local gui_root_dir="${2}"
+    local gui_requests_file="${3}"
 
     cat <<EOF > /etc/mfs/mfsgui.cfg
 WORKING_USER = mfs
@@ -72,6 +89,13 @@ SYSLOG_MIN_LEVEL = ${mfsgui_log_level}
 GUISERV_LISTEN_HOST = *
 GUISERV_LISTEN_PORT = 9425
 EOF
+
+    if [[ -n "${gui_root_dir}" && -n "${gui_requests_file}" ]]; then
+        cat <<EOF >> /etc/mfs/mfsgui.cfg
+ROOT_DIR = ${gui_root_dir}
+REQUESTS_FILE = ${gui_requests_file}
+EOF
+    fi
 }
 
 find_gui_entrypoint() {
@@ -184,6 +208,8 @@ main() {
     local mfsgui_log_level
     local mount_enabled
     local mount_point
+    local gui_requests_path
+    local gui_root_dir
 
     log_level="$(bashio::config 'log_level')"
     master_host="$(bashio::config 'master_host')"
@@ -194,10 +220,20 @@ main() {
     mount_enabled="$(bashio::config 'mount_enabled')"
     delayed_init="$(bashio::config 'delayed_init')"
     mfsgui_log_level="$(to_mfsgui_log_level "${log_level}")"
+    gui_requests_path="$(find_gui_requests_file)"
+    gui_root_dir="$(find_gui_root_dir)"
 
     bashio::log.info "Preparing MooseFS runtime configuration"
     bashio::log.info "Mount point: ${mount_point}"
     log_host_mount_mapping "${mount_point}"
+
+    if [[ -n "${gui_requests_path}" && -n "${gui_root_dir}" ]]; then
+        bashio::log.info \
+            "MooseFS GUI assets discovered under ${gui_root_dir} with request map ${gui_requests_path}"
+    else
+        bashio::log.warning \
+            "Unable to locate MooseFS GUI requests.cfg under /usr/share; the GUI may load without full asset metadata"
+    fi
 
     if [[ -n "${master_host}" ]]; then
         bashio::log.info "MooseFS master client endpoint: ${master_host}:${master_port}${master_subfolder}"
@@ -221,7 +257,10 @@ main() {
         "${master_subfolder}" \
         "${delayed_init}" \
         "${master_password}"
-    write_gui_config "${mfsgui_log_level}"
+    write_gui_config \
+        "${mfsgui_log_level}" \
+        "${gui_root_dir}" \
+        "${gui_requests_path##*/}"
     patch_gui_defaults "${master_host}" "${master_port}"
     write_proxy_config
 
