@@ -153,12 +153,12 @@ PY
 log_host_mount_mapping() {
     local mount_point="${1}"
 
-    if [[ "${mount_point}" == /mnt/* ]]; then
+    if [[ "${mount_point}" == /share/* || "${mount_point}" == /media/* ]]; then
         bashio::log.info \
-            "Mount points under /mnt are backed by Home Assistant's share directory at /share${mount_point#/mnt}; whether a nested MooseFS FUSE mount becomes visible on the host depends on Supervisor mount propagation"
+            "Mount points under Home Assistant's mapped host folders (${mount_point}) use the same in-container path as the host; whether a nested MooseFS FUSE mount becomes visible on the host still depends on Supervisor mount propagation"
     else
         bashio::log.warning \
-            "Mount point ${mount_point} is outside /mnt, so the MooseFS mount will stay internal to the add-on container"
+            "Mount point ${mount_point} is outside the mapped /share and /media folders, so the MooseFS mount will stay internal to the add-on container"
     fi
 }
 

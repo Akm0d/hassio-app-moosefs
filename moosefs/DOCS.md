@@ -13,7 +13,7 @@ the client mount is down or still reconnecting.
 - Exposes the raw MooseFS GUI directly on `http://<home-assistant-host>:9425/`
   via `/mfs.cgi` for the `OPEN WEB UI` button.
 - Mounts MooseFS with `mfsmount` into a writable path that defaults to
-  `/mnt/mfs`, backed by the Home Assistant `share` directory.
+  `/share/mfs`, using Home Assistant's standard writable `share` mapping.
 - Keeps retrying the mount in the background instead of failing the whole
   add-on startup.
 
@@ -33,7 +33,7 @@ master_host: mfsmaster.lan
 master_port: 9421
 master_subfolder: /
 master_password: ""
-mount_point: /mnt/mfs
+mount_point: /share/mfs
 mount_enabled: true
 delayed_init: true
 ```
@@ -65,16 +65,18 @@ one.
 ### Option: `mount_point`
 
 Absolute path inside the add-on container where MooseFS should be mounted.
-Default: `/mnt/mfs`.
+Default: `/share/mfs`.
 
-The default is intentionally under the add-on's `/mnt` bind mount. MooseFS uses a
-nested FUSE mount, so this add-on maps Home Assistant's `share` directory into
-`/mnt`. With the default `mount_point: /mnt/mfs`, the underlying host path is
-`/share/mfs`, but whether the live MooseFS FUSE mount itself appears on the
-host depends on Supervisor mount propagation and may remain container-only.
+This add-on follows the same Home Assistant mapping convention used by add-ons
+like Plex: writable `/share`, writable `/media`, and read-only `/ssl`.
+MooseFS uses a nested FUSE mount, so with the default `mount_point: /share/mfs`
+the underlying host path is also `/share/mfs`, but whether the live MooseFS
+FUSE mount itself appears on the host depends on Supervisor mount propagation
+and may remain container-only.
 
-If you change `mount_point` to a path outside `/mnt`, the mount will remain
-private to the add-on container.
+If you change `mount_point` to a path under `/media`, the underlying host path
+matches there too. If you change it to a path outside `/share` or `/media`,
+the mount will remain private to the add-on container.
 
 ### Option: `mount_enabled`
 
@@ -110,7 +112,7 @@ resilient.
   and inspect the add-on logs. Recent MooseFS releases ship the GUI through
   `mfsgui`, so this add-on now leaves the GUI content paths on the upstream
   defaults instead of pinning the older CGI layout.
-- If `/mnt/mfs` is mounted in the container but `/share/mfs` is empty on the
+- If `/share/mfs` is mounted in the container but `/share/mfs` is empty on the
   host, that points to mount propagation rather than a MooseFS login problem.
   In that case the add-on can still use MooseFS internally, but Home Assistant
   may not surface the nested FUSE mount back onto the host namespace.

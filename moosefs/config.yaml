@@ -26,16 +26,16 @@ ports:
 ports_description:
   9425/tcp: MooseFS GUI Direct
 map:
-  - type: share
-    read_only: false
-    path: /mnt
+  - media:rw
+  - share:rw
+  - ssl
 options:
   log_level: info
   master_host: ""
   master_port: 9421
   master_subfolder: /
   master_password: ""
-  mount_point: /mnt/mfs
+  mount_point: /share/mfs
   mount_enabled: true
   delayed_init: true
 schema:
