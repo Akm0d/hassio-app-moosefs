@@ -3,13 +3,15 @@ name: MooseFS
 version: 0.1
 slug: moosefs
 description: Mount a MooseFS share on Home Assistant and expose the MooseFS GUI
-url: https://github.com/Akm0d/hassio-app-moosefs
+url: https://moosefs.com/about
 startup: services
 boot: auto
 init: false
 ingress: true
 ingress_port: 8099
 ingress_entry: /mfs.cgi
+apparmor: false
+panel_icon: mdi:cow
 webui: http://[HOST]:[PORT:9425]/mfs.cgi
 panel_title: MooseFS
 panel_icon: mdi:folder-network
