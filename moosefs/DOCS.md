@@ -125,7 +125,7 @@ trusted clients only.
   becomes readable, which is the quickest way to confirm that the container can
   actually see files there.
 - The add-on waits for MooseFS to mount and then publishes the same path over
-  NFSv4 using `exportfs`, `rpc.mountd`, `rpc.idmapd`, and `rpc.nfsd`.
+  NFSv4 using `exportfs`, `rpc.idmapd`, and `rpc.nfsd`.
 - If `master_host` is empty or cannot be resolved from the add-on container,
   the add-on leaves the GUI running and skips mount attempts until the setting
   is corrected.

@@ -22,11 +22,6 @@ cleanup() {
 
     set +e
 
-    if [[ -n "${mountd_pid:-}" ]]; then
-        kill "${mountd_pid}" 2>/dev/null || true
-        wait "${mountd_pid}" 2>/dev/null || true
-    fi
-
     if [[ -n "${idmapd_pid:-}" ]]; then
         kill "${idmapd_pid}" 2>/dev/null || true
         wait "${idmapd_pid}" 2>/dev/null || true
@@ -64,16 +59,16 @@ main() {
     mountpoint -q /proc/fs/nfsd || mount -t nfsd nfsd /proc/fs/nfsd
 
     bashio::log.info "Publishing ${mount_point} as the NFSv4 root export on tcp/2049"
-    exportfs -rv
-    rpc.idmapd -f &
+    exportfs -r
+
+    # NFSv4 does not require rpc.mountd, so keep the service to the minimum:
+    # id mapping plus the kernel nfsd threads.
+    rpc.idmapd -S -f &
     idmapd_pid=$!
 
-    rpc.mountd -F -N 2 -N 3 &
-    mountd_pid=$!
-
-    # Alpine's rpc.nfsd only supports disabling NFSv3 explicitly here; passing
-    # "-N 2" causes an "Unsupported version" failure and restarts the service.
+    # Serve NFSv4 only over TCP. rpc.nfsd takes the trailing "8" as the number
+    # of server threads to start.
     rpc.nfsd -N 3 -U 8
-    wait "${mountd_pid}"
+    wait "${idmapd_pid}"
 }
 main "$@"
