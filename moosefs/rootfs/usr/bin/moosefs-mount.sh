@@ -11,30 +11,46 @@ is_true() {
     [[ "${1}" == "true" ]]
 }
 
+mount_details() {
+    local mount_point="${1}"
+
+    findmnt -n -o SOURCE,FSTYPE,PROPAGATION --target "${mount_point}" 2>/dev/null || true
+}
+
 mount_is_active() {
     local mount_point="${1}"
-    local fstype
 
-    fstype="$(findmnt -n -o FSTYPE --target "${mount_point}" 2>/dev/null || true)"
-    [[ "${fstype}" == moosefs || "${fstype}" == fuse.moosefs || "${fstype}" == fuse.mfsmount ]]
+    mountpoint -q "${mount_point}" 2>/dev/null
+}
+
+mount_looks_like_moosefs() {
+    local mount_point="${1}"
+    local details
+
+    details="$(mount_details "${mount_point}")"
+    [[ "${details}" == *moosefs* || "${details}" == *mfsmount* ]]
 }
 
 cleanup_existing_mount() {
     local mount_point="${1}"
-    local fstype
+    local details
 
-    fstype="$(findmnt -n -o FSTYPE --target "${mount_point}" 2>/dev/null || true)"
-    if [[ -z "${fstype}" ]]; then
+    if ! mount_is_active "${mount_point}"; then
         return
     fi
 
-    if [[ "${fstype}" == moosefs || "${fstype}" == fuse.moosefs || "${fstype}" == fuse.mfsmount ]]; then
+    if mount_looks_like_moosefs "${mount_point}"; then
         bashio::log.warning "Unmounting stale MooseFS mount from ${mount_point}"
         fusermount3 -u "${mount_point}" 2>/dev/null \
             || umount "${mount_point}" 2>/dev/null \
             || umount -l "${mount_point}" 2>/dev/null \
             || true
+        return
     fi
+
+    details="$(mount_details "${mount_point}")"
+    bashio::log.warning \
+        "Mount point ${mount_point} is already occupied by a non-MooseFS mount (${details:-unknown}); leaving it in place"
 }
 
 master_is_reachable() {
@@ -94,7 +110,7 @@ log_mount_listing() {
     local mount_point="${1}"
     local ls_output
 
-    if ! ls_output="$(ls -lhtr "${mount_point}" 2>&1)"; then
+    if ! ls_output="$(timeout 5 ls -lhtr "${mount_point}" 2>&1)"; then
         bashio::log.warning "MooseFS mount at ${mount_point} exists but is not readable yet: ${ls_output}"
         return 1
     fi
@@ -111,6 +127,7 @@ wait_for_mount_ready() {
     local mount_point="${1}"
     local mfsmount_pid="${2}"
     local attempt
+    local details
 
     for attempt in $(seq 1 30); do
         if ! kill -0 "${mfsmount_pid}" 2>/dev/null; then
@@ -124,6 +141,10 @@ wait_for_mount_ready() {
         sleep 1
     done
 
+    details="$(mount_details "${mount_point}")"
+    if [[ -n "${details}" ]]; then
+        bashio::log.warning "Mount diagnostics for ${mount_point}: ${details}"
+    fi
     bashio::log.warning "Timed out waiting for MooseFS mount at ${mount_point} to become readable"
     return 1
 }

@@ -24,6 +24,10 @@ ports:
   9425/tcp: 9425
 ports_description:
   9425/tcp: MooseFS GUI Direct
+map:
+  - type: share
+    read_only: false
+    path: /mnt
 options:
   log_level: info
   master_host: ""

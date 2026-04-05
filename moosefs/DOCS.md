@@ -13,7 +13,8 @@ the client mount is down or still reconnecting.
 - Exposes the raw MooseFS GUI directly on `http://<home-assistant-host>:9425/`
   for the `OPEN WEB UI` button.
 - Mounts MooseFS with `mfsmount` into a writable path that defaults to
-  `/mnt/mfs`.
+  `/mnt/mfs`, which is backed by the Home Assistant `share` directory so the
+  host can see the same files at `/share/mfs`.
 - Keeps retrying the mount in the background instead of failing the whole
   add-on startup.
 
@@ -67,9 +68,13 @@ one.
 Absolute path inside the add-on container where MooseFS should be mounted.
 Default: `/mnt/mfs`.
 
-The default is intentionally internal to the add-on container. MooseFS uses a
-nested FUSE mount, and Home Assistant does not reliably surface those nested
-mounts back onto the host through add-on bind mappings.
+The default is intentionally under the add-on's `/mnt` bind mount. MooseFS uses a
+nested FUSE mount, so this add-on maps Home Assistant's `share` directory into
+`/mnt`. With the default `mount_point: /mnt/mfs`, the same MooseFS mount is
+available to Home Assistant and the host through `/share/mfs`.
+
+If you change `mount_point` to a path outside `/mnt`, the mount will remain
+private to the add-on container.
 
 ### Option: `mount_enabled`
 
@@ -87,6 +92,7 @@ resilient.
 - Home Assistant sidebar tab: goes through Ingress to the add-on proxy on
   `8099`.
 - `OPEN WEB UI`: goes directly to `http://<home-assistant-host>:9425/`.
+- Default host-visible MooseFS path: `/share/mfs`.
 
 ## Notes
 
@@ -101,8 +107,9 @@ resilient.
   the add-on leaves the GUI running and skips mount attempts until the setting
   is corrected.
 - If the Home Assistant sidebar still shows `404 Not Found`, use `OPEN WEB UI`
-  instead. The raw MooseFS GUI at port `9425` does not depend on Ingress path
-  rewriting.
+  and inspect the add-on logs. Recent MooseFS releases ship the GUI through
+  `mfsgui`, so this add-on now leaves the GUI content paths on the upstream
+  defaults instead of pinning the older CGI layout.
 
 ## Changelog & Releases
 

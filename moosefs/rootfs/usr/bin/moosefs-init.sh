@@ -71,49 +71,19 @@ DATA_PATH = /var/lib/mfs/gui
 SYSLOG_MIN_LEVEL = ${mfsgui_log_level}
 GUISERV_LISTEN_HOST = *
 GUISERV_LISTEN_PORT = 9425
-ROOT_DIR = /usr/share/mfscgi
-REQUESTS_FILE = requests.cfg
 EOF
 }
 
-patch_gui_defaults() {
-    local cgi_path="/usr/share/mfscgi/mfs.cgi"
-    local master_host="${1}"
-    local master_port="${2}"
+log_host_mount_mapping() {
+    local mount_point="${1}"
 
-    if [[ ! -f "${cgi_path}" ]]; then
-        bashio::log.warning "MooseFS CGI entrypoint is missing at ${cgi_path}; the GUI will use upstream defaults"
-        return
+    if [[ "${mount_point}" == /mnt/* ]]; then
+        bashio::log.info \
+            "Mount points under /mnt are backed by Home Assistant's share directory; ${mount_point} will be exposed to the host share tree as /share${mount_point#/mnt}"
+    else
+        bashio::log.warning \
+            "Mount point ${mount_point} is outside /mnt, so the MooseFS mount will stay internal to the add-on container"
     fi
-
-    python3 - "${cgi_path}" "${master_host}" "${master_port}" <<'PY'
-from pathlib import Path
-import re
-import sys
-
-path = Path(sys.argv[1])
-master_host = sys.argv[2]
-master_port = int(sys.argv[3])
-text = path.read_text(encoding="utf-8")
-
-updated = re.sub(
-    r"^masterhost = .*$",
-    f"masterhost = {master_host!r}",
-    text,
-    count=1,
-    flags=re.MULTILINE,
-)
-updated = re.sub(
-    r"^masterport = .*$",
-    f"masterport = {master_port}",
-    updated,
-    count=1,
-    flags=re.MULTILINE,
-)
-
-if updated != text:
-    path.write_text(updated, encoding="utf-8")
-PY
 }
 
 write_proxy_config() {
@@ -124,7 +94,7 @@ server.modules = (
     "mod_rewrite"
 )
 
-server.document-root = "/usr/share/mfscgi"
+server.document-root = "/var/lib/mfs/gui"
 server.errorlog = "/dev/stderr"
 server.port = 8099
 server.bind = "0.0.0.0"
@@ -173,6 +143,7 @@ main() {
 
     bashio::log.info "Preparing MooseFS runtime configuration"
     bashio::log.info "Mount point: ${mount_point}"
+    log_host_mount_mapping "${mount_point}"
 
     if [[ -n "${master_host}" ]]; then
         bashio::log.info "MooseFS master client endpoint: ${master_host}:${master_port}${master_subfolder}"
@@ -197,7 +168,6 @@ main() {
         "${delayed_init}" \
         "${master_password}"
     write_gui_config "${mfsgui_log_level}"
-    patch_gui_defaults "${master_host}" "${master_port}"
     write_proxy_config
 
     if is_true "${mount_enabled}" && [[ ! -e /dev/fuse ]]; then
