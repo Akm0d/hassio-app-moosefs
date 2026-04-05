@@ -125,7 +125,6 @@ def mount_payload(name: str, usage: str, server: str, path: str) -> dict:
         "usage": usage,
         "type": "nfs",
         "server": server,
-        "port": 2049,
         "path": path,
         "read_only": False,
     }
