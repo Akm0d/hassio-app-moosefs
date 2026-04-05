@@ -14,8 +14,6 @@ apparmor: false
 panel_icon: mdi:cow
 webui: http://[HOST]:[PORT:9425]/mfs.cgi
 panel_title: MooseFS
-panel_icon: mdi:folder-network
-apparmor: false
 arch:
   - aarch64
   - amd64
@@ -28,9 +26,7 @@ ports:
 ports_description:
   9425/tcp: MooseFS GUI Direct
 map:
-  - media:rw
   - share:rw
-  - ssl
 options:
   log_level: info
   master_host: ""
