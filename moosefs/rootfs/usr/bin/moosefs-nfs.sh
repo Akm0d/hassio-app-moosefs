@@ -17,6 +17,69 @@ mount_is_active() {
     mountpoint -q "${mount_point}" 2>/dev/null
 }
 
+config_to_remote_path() {
+    local raw_value="${1}"
+    local slash_means_root="${2}"
+    local value
+
+    value="$(printf '%s' "${raw_value}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+    if [[ -z "${value}" ]]; then
+        return 1
+    fi
+
+    if [[ "${value}" == "/" ]]; then
+        if [[ "${slash_means_root}" == "true" ]]; then
+            printf '/\n'
+            return 0
+        fi
+        return 1
+    fi
+
+    while [[ "${value}" == ./* ]]; do
+        value="${value#./}"
+    done
+
+    value="${value#/}"
+    value="${value%/}"
+
+    if [[ -z "${value}" || "${value}" == "." ]]; then
+        if [[ "${slash_means_root}" == "true" ]]; then
+            printf '/\n'
+            return 0
+        fi
+        return 1
+    fi
+
+    printf '/%s\n' "${value}"
+}
+
+probe_nfs_path() {
+    local remote_path="${1}"
+    local purpose="${2}"
+    local probe_dir="/run/moosefs/nfs-probe/${purpose}"
+    local attempt
+
+    mkdir -p "${probe_dir}"
+
+    for attempt in $(seq 1 12); do
+        umount "${probe_dir}" 2>/dev/null || true
+
+        if timeout 10 mount -t nfs -o nfsvers=4.2,proto=tcp "127.0.0.1:${remote_path}" "${probe_dir}" >/dev/null 2>&1; then
+            bashio::log.info "Verified local NFS path ${remote_path} for ${purpose}"
+            umount "${probe_dir}" 2>/dev/null || true
+            return 0
+        fi
+
+        bashio::log.info \
+            "Waiting for local NFS path ${remote_path} to become mountable for ${purpose} (attempt ${attempt}/12)"
+        sleep 5
+    done
+
+    bashio::log.warning \
+        "Local NFS path ${remote_path} for ${purpose} did not become mountable before Supervisor sync"
+    return 1
+}
+
 cleanup() {
     local exit_code=$?
 
@@ -42,6 +105,7 @@ main() {
     local media_dir
     local mount_enabled
     local mount_point
+    local remote_path
     local share_dir
 
     backup_dir="$(bashio::config 'backup_dir')"
@@ -107,6 +171,22 @@ main() {
     while IFS= read -r line; do
         [[ -n "${line}" ]] && bashio::log.info "rpcinfo: ${line}"
     done < <(timeout 5 rpcinfo -p 127.0.0.1 2>/dev/null || true)
+
+    probe_nfs_path "/" "root" || true
+
+    if remote_path="$(config_to_remote_path "${share_dir}" true)"; then
+        if [[ "${remote_path}" != "/" ]]; then
+            probe_nfs_path "${remote_path}" "share" || true
+        fi
+    fi
+
+    if remote_path="$(config_to_remote_path "${media_dir}" false)"; then
+        probe_nfs_path "${remote_path}" "media" || true
+    fi
+
+    if remote_path="$(config_to_remote_path "${backup_dir}" false)"; then
+        probe_nfs_path "${remote_path}" "backup" || true
+    fi
 
     if ! python3 /usr/bin/moosefs-supervisor-mounts.py \
         "${mount_point}" \
