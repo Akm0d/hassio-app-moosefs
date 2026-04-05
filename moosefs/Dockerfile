@@ -48,7 +48,6 @@ RUN apk add --no-cache \
     coreutils \
     fuse3 \
     libpcap \
-    lighttpd \
     nfs-utils \
     python3 \
     util-linux \
@@ -57,7 +56,6 @@ RUN apk add --no-cache \
     && adduser -S -D -H -h /var/lib/mfs -G mfs mfs \
     && mkdir -p \
         /mnt/mfs \
-        /run/lighttpd \
         /run/moosefs \
         /var/lib/nfs/rpc_pipefs \
         /var/lib/mfs/gui \
@@ -67,8 +65,7 @@ RUN apk add --no-cache \
         /etc/s6-overlay/s6-rc.d/gui/run \
         /etc/s6-overlay/s6-rc.d/init-moosefs/run \
         /etc/s6-overlay/s6-rc.d/mount/run \
-        /etc/s6-overlay/s6-rc.d/nfs/run \
-        /etc/s6-overlay/s6-rc.d/proxy/run
+        /etc/s6-overlay/s6-rc.d/nfs/run
 
 # Build arguments
 ARG BUILD_ARCH

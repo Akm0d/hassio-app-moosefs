@@ -2,7 +2,7 @@
 # shellcheck shell=bash
 # ==============================================================================
 # Home Assistant Add-on: MooseFS
-# Generate runtime configuration for the GUI, proxy, and mount services.
+# Generate runtime configuration for the GUI, NFS, and mount services.
 # ==============================================================================
 
 set -euo pipefail
@@ -158,52 +158,11 @@ PY
     bashio::log.info "Patched MooseFS GUI defaults in ${cgi_path} to ${master_host}:${master_port}"
 }
 
-log_host_mount_mapping() {
+log_mount_strategy() {
     local mount_point="${1}"
 
-    if [[ "${mount_point}" == /mnt/* ]]; then
-        bashio::log.info \
-            "Mount point ${mount_point} is internal to the add-on container and will be exported to clients over NFSv4 instead of a Home Assistant host bind mount"
-    else
-        bashio::log.info \
-            "Mount point ${mount_point} is internal to the add-on container; NFS export configuration will target this exact path"
-    fi
-}
-
-write_proxy_config() {
-    cat <<'EOF' > /etc/lighttpd/lighttpd.conf
-server.modules = (
-    "mod_access",
-    "mod_proxy",
-    "mod_rewrite"
-)
-
-server.document-root = "/var/lib/mfs/gui"
-server.errorlog = "/dev/stderr"
-server.port = 8099
-server.bind = "0.0.0.0"
-
-# Strip the Home Assistant ingress session prefix before forwarding to mfsgui.
-url.rewrite-once = (
-    "^/$" => "/mfs.cgi",
-    "^/(api/)?hassio_ingress/[^/]+$" => "/mfs.cgi",
-    "^/(api/)?hassio_ingress/[^/]+/$" => "/mfs.cgi",
-    "^/(api/)?hassio_ingress/[^/]+/(.*)$" => "/$2"
-)
-
-proxy.server = (
-    "" => (
-        (
-            "host" => "127.0.0.1",
-            "port" => 9425
-        )
-    )
-)
-
-$HTTP["remoteip"] != "172.30.32.2" {
-    url.access-deny = ( "" )
-}
-EOF
+    bashio::log.info \
+        "Mount point ${mount_point} is internal to the add-on container; MooseFS serves the GUI directly on port 9425 and exports the filesystem over NFSv4 on port 2049"
 }
 
 main() {
@@ -233,7 +192,7 @@ main() {
 
     bashio::log.info "Preparing MooseFS runtime configuration"
     bashio::log.info "Mount point: ${mount_point}"
-    log_host_mount_mapping "${mount_point}"
+    log_mount_strategy "${mount_point}"
 
     if [[ -n "${gui_requests_path}" && -n "${gui_root_dir}" ]]; then
         bashio::log.info \
@@ -253,7 +212,6 @@ main() {
     mkdir -p \
         /etc/exports.d \
         /etc/mfs \
-        /run/lighttpd \
         /run/moosefs \
         /var/lib/nfs/rpc_pipefs \
         /var/lib/mfs/gui \
@@ -273,7 +231,6 @@ main() {
         "${gui_root_dir}" \
         "${gui_requests_path##*/}"
     patch_gui_defaults "${master_host}" "${master_port}"
-    write_proxy_config
 
     bashio::log.info \
         "Configured NFSv4 export for ${mount_point}; clients can mount the add-on using server:/ on tcp/2049 once MooseFS is live"

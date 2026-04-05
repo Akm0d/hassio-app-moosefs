@@ -26,4 +26,3 @@ configuration:
     description: Allow the mount to come up before the master is reachable.
 network:
   2049/tcp: MooseFS NFSv4 Export
-  8099/tcp: MooseFS Web UI

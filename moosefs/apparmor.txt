@@ -1,0 +1,62 @@
+#include <tunables/global>
+
+profile moosefs flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
+
+  file,
+  mount,
+  umount,
+  capability chown,
+  capability dac_override,
+  capability fowner,
+  capability kill,
+  capability setgid,
+  capability setuid,
+  capability sys_admin,
+  signal (send) set=(kill,term,int,hup,cont),
+
+  network inet stream,
+  network inet dgram,
+  network inet6 stream,
+  network inet6 dgram,
+
+  # S6-Overlay
+  /init ix,
+  /bin/** ix,
+  /sbin/** ix,
+  /usr/bin/** ix,
+  /usr/sbin/** ix,
+  /run/{s6,s6-rc*,service}/** ix,
+  /package/** ix,
+  /command/** ix,
+  /etc/services.d/** rwix,
+  /etc/cont-init.d/** rwix,
+  /etc/cont-finish.d/** rwix,
+  /run/{,**} rwk,
+  /tmp/** rwk,
+  /dev/tty rw,
+
+  # Bashio and add-on state
+  /usr/lib/bashio/** ix,
+  /data/** rw,
+
+  # MooseFS / GUI / NFS config and state
+  /dev/fuse rw,
+  /etc/exports rw,
+  /etc/exports.d/** rw,
+  /etc/fuse.conf rw,
+  /etc/group r,
+  /etc/hosts r,
+  /etc/idmapd.conf rw,
+  /etc/mfs/** rw,
+  /etc/mtab r,
+  /etc/nfs.conf rw,
+  /etc/passwd r,
+  /etc/resolv.conf r,
+  /mnt/** rw,
+  /proc/** r,
+  /proc/fs/nfsd/** rw,
+  /usr/share/** rw,
+  /var/lib/mfs/** rw,
+  /var/lib/nfs/** rw,
+}

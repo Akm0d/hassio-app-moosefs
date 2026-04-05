@@ -8,10 +8,8 @@ the client mount is down or still reconnecting.
 
 - Builds MooseFS from upstream source for the add-on image.
 - Starts `mfsgui` inside the container on `0.0.0.0:9425`.
-- Uses `lighttpd` on port `8099` only for Home Assistant Ingress/sidebar
-  access.
 - Exposes the raw MooseFS GUI directly on `http://<home-assistant-host>:9425/`
-  via `/mfs.cgi` for the `OPEN WEB UI` button.
+  via `/mfs.cgi` for both Home Assistant Ingress and the `OPEN WEB UI` button.
 - Mounts MooseFS with `mfsmount` into a writable path that defaults to
   `/mnt/mfs` inside the add-on container.
 - Exports the MooseFS mount over NFSv4 on TCP port `2049` so clients can mount
@@ -88,8 +86,8 @@ resilient.
 
 ## Access Paths
 
-- Home Assistant sidebar tab: goes through Ingress to the add-on proxy on
-  `8099`.
+- Home Assistant sidebar tab: goes directly to MooseFS GUI on `9425` via
+  Home Assistant Ingress using `/mfs.cgi`.
 - `OPEN WEB UI`: goes directly to `http://<home-assistant-host>:9425/mfs.cgi`.
 - NFSv4 export root: `server:/` on TCP `2049`, backed by the internal
   MooseFS mount at `/mnt/mfs`.
@@ -116,8 +114,9 @@ trusted clients only.
 
 ## Notes
 
-- This add-on needs `/dev/fuse`, `SYS_ADMIN`, and AppArmor disabled because the
-  MooseFS client uses FUSE mounts.
+- This add-on needs `/dev/fuse`, `SYS_ADMIN`, and a custom AppArmor profile
+  because the MooseFS client uses FUSE mounts and the NFS export mounts
+  `rpc_pipefs` and `nfsd`.
 - If the mount fails, the add-on keeps the web UI alive and retries the mount
   every 15 seconds.
 - The add-on logs `ls -lhtr` output for the mount point after the MooseFS mount
@@ -128,10 +127,8 @@ trusted clients only.
 - If `master_host` is empty or cannot be resolved from the add-on container,
   the add-on leaves the GUI running and skips mount attempts until the setting
   is corrected.
-- If the Home Assistant sidebar still shows `404 Not Found`, use `OPEN WEB UI`
-  and inspect the add-on logs. Recent MooseFS releases ship the GUI through
-  `mfsgui`, so this add-on now leaves the GUI content paths on the upstream
-  defaults instead of pinning the older CGI layout.
+- If the Home Assistant sidebar still shows `404 Not Found`, inspect the add-on
+  logs and confirm `mfsgui` itself is serving `mfs.cgi` on port `9425`.
 
 ## Changelog & Releases
 

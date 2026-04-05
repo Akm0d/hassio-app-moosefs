@@ -8,9 +8,9 @@ startup: services
 boot: auto
 init: false
 ingress: true
-ingress_port: 8099
+ingress_port: 9425
 ingress_entry: /mfs.cgi
-apparmor: false
+apparmor: true
 panel_icon: mdi:cow
 webui: http://[HOST]:[PORT:9425]/mfs.cgi
 panel_title: MooseFS
