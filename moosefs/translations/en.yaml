@@ -17,7 +17,7 @@ configuration:
     description: Optional export password used when connecting to the master.
   mount_point:
     name: Mount point
-    description: Absolute path inside the add-on where MooseFS should be mounted. Paths under /share or /media use Home Assistant host mappings, but nested FUSE mounts may still stay container-only.
+    description: Absolute path inside the add-on where MooseFS should be mounted. The add-on exports this internal path over NFSv4 instead of exposing a host bind mount.
   mount_enabled:
     name: Enable mount loop
     description: Keep the MooseFS client mount active in the background.
@@ -25,4 +25,5 @@ configuration:
     name: Delayed init
     description: Allow the mount to come up before the master is reachable.
 network:
+  2049/tcp: MooseFS NFSv4 Export
   8099/tcp: MooseFS Web UI

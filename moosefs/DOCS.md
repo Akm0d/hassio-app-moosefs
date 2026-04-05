@@ -13,7 +13,9 @@ the client mount is down or still reconnecting.
 - Exposes the raw MooseFS GUI directly on `http://<home-assistant-host>:9425/`
   via `/mfs.cgi` for the `OPEN WEB UI` button.
 - Mounts MooseFS with `mfsmount` into a writable path that defaults to
-  `/share/mfs`, using Home Assistant's standard writable `share` mapping.
+  `/mnt/mfs` inside the add-on container.
+- Exports the MooseFS mount over NFSv4 on TCP port `2049` so clients can mount
+  it explicitly.
 - Keeps retrying the mount in the background instead of failing the whole
   add-on startup.
 
@@ -33,7 +35,7 @@ master_host: mfsmaster.lan
 master_port: 9421
 master_subfolder: /
 master_password: ""
-mount_point: /share/mfs
+mount_point: /mnt/mfs
 mount_enabled: true
 delayed_init: true
 ```
@@ -65,18 +67,13 @@ one.
 ### Option: `mount_point`
 
 Absolute path inside the add-on container where MooseFS should be mounted.
-Default: `/share/mfs`.
+Default: `/mnt/mfs`.
 
-This add-on follows the same Home Assistant mapping convention used by add-ons
-like Plex: writable `/share`, writable `/media`, and read-only `/ssl`.
-MooseFS uses a nested FUSE mount, so with the default `mount_point: /share/mfs`
-the underlying host path is also `/share/mfs`, but whether the live MooseFS
-FUSE mount itself appears on the host depends on Supervisor mount propagation
-and may remain container-only.
+The MooseFS client mount is intentionally internal to the add-on container.
+This add-on exports that internal mount over NFSv4 instead of trying to
+propagate the FUSE mount back through a Home Assistant host bind.
 
-If you change `mount_point` to a path under `/media`, the underlying host path
-matches there too. If you change it to a path outside `/share` or `/media`,
-the mount will remain private to the add-on container.
+If you change `mount_point`, the NFS export follows that exact internal path.
 
 ### Option: `mount_enabled`
 
@@ -94,7 +91,28 @@ resilient.
 - Home Assistant sidebar tab: goes through Ingress to the add-on proxy on
   `8099`.
 - `OPEN WEB UI`: goes directly to `http://<home-assistant-host>:9425/mfs.cgi`.
-- Underlying host path for the default mount point: `/share/mfs`.
+- NFSv4 export root: `server:/` on TCP `2049`, backed by the internal
+  MooseFS mount at `/mnt/mfs`.
+
+## Mounting Over NFS
+
+On another Linux system, or on the Home Assistant host if you have host shell
+access, mount the add-on export with:
+
+```sh
+mkdir -p /mnt/mfs
+mount -t nfs4 -o vers=4.2,proto=tcp <home-assistant-host>:/ /mnt/mfs
+```
+
+Example:
+
+```sh
+mount -t nfs4 -o vers=4.2,proto=tcp hearth.goose-stargazer.ts.net:/ /mnt/mfs
+```
+
+The NFS export is read-write and intentionally uses `no_root_squash` so a root
+client can manage files normally. Restrict network access to port `2049` to
+trusted clients only.
 
 ## Notes
 
@@ -105,6 +123,8 @@ resilient.
 - The add-on logs `ls -lhtr` output for the mount point after the MooseFS mount
   becomes readable, which is the quickest way to confirm that the container can
   actually see files there.
+- The add-on waits for MooseFS to mount and then publishes the same path over
+  NFSv4 using `exportfs`, `rpc.mountd`, `rpc.idmapd`, and `rpc.nfsd`.
 - If `master_host` is empty or cannot be resolved from the add-on container,
   the add-on leaves the GUI running and skips mount attempts until the setting
   is corrected.
@@ -112,10 +132,6 @@ resilient.
   and inspect the add-on logs. Recent MooseFS releases ship the GUI through
   `mfsgui`, so this add-on now leaves the GUI content paths on the upstream
   defaults instead of pinning the older CGI layout.
-- If `/share/mfs` is mounted in the container but `/share/mfs` is empty on the
-  host, that points to mount propagation rather than a MooseFS login problem.
-  In that case the add-on can still use MooseFS internally, but Home Assistant
-  may not surface the nested FUSE mount back onto the host namespace.
 
 ## Changelog & Releases
 

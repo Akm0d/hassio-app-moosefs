@@ -61,6 +61,14 @@ EOF
     fi
 }
 
+write_nfs_exports() {
+    local mount_point="${1}"
+
+    cat <<EOF > /etc/exports
+${mount_point} *(rw,fsid=0,no_subtree_check,no_root_squash,sync,insecure)
+EOF
+}
+
 find_gui_requests_file() {
     find /usr/share -type f -name 'requests.cfg' -print -quit 2>/dev/null || true
 }
@@ -153,12 +161,12 @@ PY
 log_host_mount_mapping() {
     local mount_point="${1}"
 
-    if [[ "${mount_point}" == /share/* || "${mount_point}" == /media/* ]]; then
+    if [[ "${mount_point}" == /mnt/* ]]; then
         bashio::log.info \
-            "Mount points under Home Assistant's mapped host folders (${mount_point}) use the same in-container path as the host; whether a nested MooseFS FUSE mount becomes visible on the host still depends on Supervisor mount propagation"
+            "Mount point ${mount_point} is internal to the add-on container and will be exported to clients over NFSv4 instead of a Home Assistant host bind mount"
     else
-        bashio::log.warning \
-            "Mount point ${mount_point} is outside the mapped /share and /media folders, so the MooseFS mount will stay internal to the add-on container"
+        bashio::log.info \
+            "Mount point ${mount_point} is internal to the add-on container; NFS export configuration will target this exact path"
     fi
 }
 
@@ -243,9 +251,11 @@ main() {
     fi
 
     mkdir -p \
+        /etc/exports.d \
         /etc/mfs \
         /run/lighttpd \
         /run/moosefs \
+        /var/lib/nfs/rpc_pipefs \
         /var/lib/mfs/gui \
         "${mount_point}"
     chown -R mfs:mfs /var/lib/mfs
@@ -257,12 +267,16 @@ main() {
         "${master_subfolder}" \
         "${delayed_init}" \
         "${master_password}"
+    write_nfs_exports "${mount_point}"
     write_gui_config \
         "${mfsgui_log_level}" \
         "${gui_root_dir}" \
         "${gui_requests_path##*/}"
     patch_gui_defaults "${master_host}" "${master_port}"
     write_proxy_config
+
+    bashio::log.info \
+        "Configured NFSv4 export for ${mount_point}; clients can mount the add-on using server:/ on tcp/2049 once MooseFS is live"
 
     if is_true "${mount_enabled}" && [[ ! -e /dev/fuse ]]; then
         bashio::log.error "/dev/fuse is not available; the MooseFS mount service will keep retrying until it appears"
