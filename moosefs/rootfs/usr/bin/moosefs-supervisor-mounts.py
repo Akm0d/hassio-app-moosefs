@@ -12,6 +12,8 @@ from pathlib import Path
 
 
 SUPERVISOR_URL = "http://supervisor"
+API_TIMEOUT_SECONDS = 15
+MOUNT_API_TIMEOUT_SECONDS = 90
 MANAGED_MOUNTS = {
     "share": "moosefs_share",
     "media": "moosefs_media",
@@ -23,10 +25,21 @@ def log(level: str, message: str) -> None:
     print(f"{level}: {message}", flush=True)
 
 
-def normalize_relative_dir(raw_value: str, *, default_root: bool) -> str | None:
+def normalize_relative_dir(
+    raw_value: str,
+    *,
+    empty_disables: bool,
+    slash_means_root: bool,
+) -> str | None:
     value = (raw_value or "").strip()
-    if value in {"", ".", "/"}:
-        return "" if default_root else None
+    if value == "":
+        return None if empty_disables else ""
+
+    if value in {".", "./"}:
+        return ""
+
+    if value == "/":
+        return "" if slash_means_root else None
 
     while value.startswith("./"):
         value = value[2:]
@@ -34,7 +47,7 @@ def normalize_relative_dir(raw_value: str, *, default_root: bool) -> str | None:
     value = value.lstrip("/").rstrip("/")
 
     if value in {"", "."}:
-        return "" if default_root else None
+        return None if empty_disables else ""
 
     parts = []
     for part in value.split("/"):
@@ -45,7 +58,7 @@ def normalize_relative_dir(raw_value: str, *, default_root: bool) -> str | None:
         parts.append(part)
 
     if not parts:
-        return "" if default_root else None
+        return None if empty_disables else ""
 
     return "/".join(parts)
 
@@ -65,7 +78,14 @@ def ensure_directory(mount_point: Path, relative_dir: str | None, purpose: str) 
     log("INFO", f"Ensured MooseFS directory for {purpose}: {target}")
 
 
-def api_request(token: str, method: str, path: str, payload: dict | None = None):
+def api_request(
+    token: str,
+    method: str,
+    path: str,
+    payload: dict | None = None,
+    *,
+    timeout: int = API_TIMEOUT_SECONDS,
+):
     body = None
     headers = {"Authorization": f"Bearer {token}"}
     if payload is not None:
@@ -80,7 +100,7 @@ def api_request(token: str, method: str, path: str, payload: dict | None = None)
     )
 
     try:
-        with urllib.request.urlopen(request, timeout=15) as response:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
             raw = response.read().decode("utf-8").strip()
     except urllib.error.HTTPError as err:
         details = err.read().decode("utf-8", errors="replace").strip()
@@ -99,11 +119,19 @@ def api_request(token: str, method: str, path: str, payload: dict | None = None)
     return parsed
 
 
-def mount_payload(name: str, usage: str, path: str) -> dict:
+def get_mount_server(token: str) -> str:
+    addon_info = api_request(token, "GET", "/addons/self/info")
+    ip_address = (addon_info or {}).get("ip_address", "").strip()
+    if not ip_address:
+        raise RuntimeError("Supervisor did not provide an add-on ip_address for NFS mount registration")
+    return ip_address
+
+
+def mount_payload(name: str, usage: str, server: str, path: str) -> dict:
     payload = {
         "usage": usage,
         "type": "nfs",
-        "server": "127.0.0.1",
+        "server": server,
         "port": 2049,
         "path": path,
         "read_only": False,
@@ -115,18 +143,38 @@ def mount_payload(name: str, usage: str, path: str) -> dict:
     return payload
 
 
-def sync_mount(token: str, existing_mounts: dict, *, name: str, usage: str, path: str) -> None:
-    payload = mount_payload("", usage, path)
+def sync_mount(
+    token: str,
+    existing_mounts: dict,
+    *,
+    name: str,
+    usage: str,
+    server: str,
+    path: str,
+) -> None:
+    payload = mount_payload("", usage, server, path)
     existing = existing_mounts.get(name)
 
     if existing is None:
-        create_payload = mount_payload(name, usage, path)
-        api_request(token, "POST", "/mounts", create_payload)
-        log("INFO", f"Created Supervisor {usage} mount '{name}' for NFS path {path}")
+        create_payload = mount_payload(name, usage, server, path)
+        api_request(
+            token,
+            "POST",
+            "/mounts",
+            create_payload,
+            timeout=MOUNT_API_TIMEOUT_SECONDS,
+        )
+        log("INFO", f"Created Supervisor {usage} mount '{name}' for NFS {server}:{path}")
         return
 
-    api_request(token, "PUT", f"/mounts/{name}", payload)
-    log("INFO", f"Updated Supervisor {usage} mount '{name}' for NFS path {path}")
+    api_request(
+        token,
+        "PUT",
+        f"/mounts/{name}",
+        payload,
+        timeout=MOUNT_API_TIMEOUT_SECONDS,
+    )
+    log("INFO", f"Updated Supervisor {usage} mount '{name}' for NFS {server}:{path}")
 
 
 def delete_mount(token: str, name: str, usage: str) -> None:
@@ -145,15 +193,29 @@ def main() -> int:
         return 1
 
     mount_point = Path(sys.argv[1])
-    share_dir = normalize_relative_dir(sys.argv[2], default_root=True)
-    media_dir = normalize_relative_dir(sys.argv[3], default_root=False)
-    backup_dir = normalize_relative_dir(sys.argv[4], default_root=False)
+    share_dir = normalize_relative_dir(
+        sys.argv[2],
+        empty_disables=True,
+        slash_means_root=True,
+    )
+    media_dir = normalize_relative_dir(
+        sys.argv[3],
+        empty_disables=True,
+        slash_means_root=False,
+    )
+    backup_dir = normalize_relative_dir(
+        sys.argv[4],
+        empty_disables=True,
+        slash_means_root=False,
+    )
 
     ensure_directory(mount_point, share_dir, "share")
     ensure_directory(mount_point, media_dir, "media")
     ensure_directory(mount_point, backup_dir, "backup")
 
     mounts_info = api_request(token, "GET", "/mounts") or {}
+    mount_server = get_mount_server(token)
+    log("INFO", f"Using add-on IP {mount_server} for Supervisor NFS mounts")
     existing_mounts = {
         mount["name"]: mount
         for mount in mounts_info.get("mounts", [])
@@ -178,7 +240,14 @@ def main() -> int:
                 delete_mount(token, name, usage)
             continue
 
-        sync_mount(token, existing_mounts, name=name, usage=usage, path=nfs_path(relative_dir))
+        sync_mount(
+            token,
+            existing_mounts,
+            name=name,
+            usage=usage,
+            server=mount_server,
+            path=nfs_path(relative_dir),
+        )
 
         if usage == "backup" and default_backup_mount != name:
             api_request(token, "POST", "/mounts/options", {"default_backup_mount": name})

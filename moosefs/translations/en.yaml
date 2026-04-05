@@ -26,7 +26,7 @@ configuration:
     description: Relative directory inside the MooseFS mount to register as the Home Assistant media storage. Leave empty to disable it.
   share_dir:
     name: Share directory
-    description: Relative directory inside the MooseFS mount to register as the Home Assistant share storage. Leave empty to use the MooseFS root.
+    description: Relative directory inside the MooseFS mount to register as the Home Assistant share storage. Use / for the MooseFS root, or leave empty to disable it.
   mount_enabled:
     name: Enable mount loop
     description: Keep the MooseFS client mount active in the background.

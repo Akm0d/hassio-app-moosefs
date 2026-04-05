@@ -163,17 +163,16 @@ log_mount_strategy() {
     local backup_dir="${2}"
     local media_dir="${3}"
     local share_dir="${4}"
-    local resolved_share_dir
-
-    resolved_share_dir="${share_dir}"
-    if [[ -z "${resolved_share_dir}" || "${resolved_share_dir}" == "/" ]]; then
-        resolved_share_dir="/"
-    fi
 
     bashio::log.info \
         "Mount point ${mount_point} is internal to the add-on container; Home Assistant Ingress uses the lighttpd proxy on port 8099, the raw MooseFS GUI stays on port 9425, and the filesystem is exported over NFSv4 on port 2049"
-    bashio::log.info \
-        "Supervisor share mount will target ${resolved_share_dir} inside the NFS export"
+
+    if [[ -n "${share_dir}" ]]; then
+        bashio::log.info \
+            "Supervisor share mount will target ${share_dir} inside the NFS export"
+    else
+        bashio::log.info "Supervisor share mount is disabled"
+    fi
 
     if [[ -n "${backup_dir}" ]]; then
         bashio::log.info \
@@ -183,6 +182,14 @@ log_mount_strategy() {
     if [[ -n "${media_dir}" ]]; then
         bashio::log.info \
             "Supervisor media mount will target ${media_dir} inside the NFS export"
+    fi
+
+    if [[ -z "${backup_dir}" ]]; then
+        bashio::log.info "Supervisor backup mount is disabled"
+    fi
+
+    if [[ -z "${media_dir}" ]]; then
+        bashio::log.info "Supervisor media mount is disabled"
     fi
 }
 

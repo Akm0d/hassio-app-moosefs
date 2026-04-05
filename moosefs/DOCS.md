@@ -39,7 +39,7 @@ master_password: ""
 mount_point: /mnt/mfs
 backup_dir: ""
 media_dir: ""
-share_dir: ""
+share_dir: /
 mount_enabled: true
 delayed_init: true
 ```
@@ -102,12 +102,14 @@ Leave empty to disable the Home Assistant media mount.
 Relative directory inside the mounted MooseFS tree to register as the Home
 Assistant `share` mount.
 
-Default: empty, which means the root of the MooseFS export.
+Default: `/`, which means the root of the MooseFS export.
 
 Examples:
 
-- `""` maps Home Assistant `share` to the root of `/mnt/mfs`
+- `"/"` maps Home Assistant `share` to the root of `/mnt/mfs`
 - `homeassistant/share` maps Home Assistant `share` to `/mnt/mfs/homeassistant/share`
+
+Set this to an empty string to disable the Home Assistant share mount entirely.
 
 ### Option: `mount_enabled`
 
@@ -139,7 +141,7 @@ Assistant storage.
 Example:
 
 ```yaml
-share_dir: ""
+share_dir: /
 media_dir: plex/movies
 backup_dir: backups
 ```
@@ -151,7 +153,8 @@ That results in:
 - Supervisor mount `moosefs_backup` using `/mnt/mfs/backups`
 
 If `backup_dir` or `media_dir` are blank, those Home Assistant mounts are not
-created. `share_dir` defaults to the root of the MooseFS tree.
+created. `share_dir` defaults to the root of the MooseFS tree, and an empty
+`share_dir` disables the share mount completely.
 
 Home Assistant exposes these as named network storage entries rather than
 replacing the built-in root folders outright.
