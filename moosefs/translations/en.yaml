@@ -18,6 +18,15 @@ configuration:
   mount_point:
     name: Mount point
     description: Absolute path inside the add-on where MooseFS should be mounted. The add-on exports this internal path over NFSv4 instead of exposing a host bind mount.
+  backup_dir:
+    name: Backup directory
+    description: Relative directory inside the MooseFS mount to register as the Home Assistant backup storage. Leave empty to disable it.
+  media_dir:
+    name: Media directory
+    description: Relative directory inside the MooseFS mount to register as the Home Assistant media storage. Leave empty to disable it.
+  share_dir:
+    name: Share directory
+    description: Relative directory inside the MooseFS mount to register as the Home Assistant share storage. Leave empty to use the MooseFS root.
   mount_enabled:
     name: Enable mount loop
     description: Keep the MooseFS client mount active in the background.

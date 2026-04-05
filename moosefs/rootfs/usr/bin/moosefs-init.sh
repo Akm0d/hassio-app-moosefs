@@ -160,9 +160,30 @@ PY
 
 log_mount_strategy() {
     local mount_point="${1}"
+    local backup_dir="${2}"
+    local media_dir="${3}"
+    local share_dir="${4}"
+    local resolved_share_dir
+
+    resolved_share_dir="${share_dir}"
+    if [[ -z "${resolved_share_dir}" || "${resolved_share_dir}" == "/" ]]; then
+        resolved_share_dir="/"
+    fi
 
     bashio::log.info \
         "Mount point ${mount_point} is internal to the add-on container; Home Assistant Ingress uses the lighttpd proxy on port 8099, the raw MooseFS GUI stays on port 9425, and the filesystem is exported over NFSv4 on port 2049"
+    bashio::log.info \
+        "Supervisor share mount will target ${resolved_share_dir} inside the NFS export"
+
+    if [[ -n "${backup_dir}" ]]; then
+        bashio::log.info \
+            "Supervisor backup mount will target ${backup_dir} inside the NFS export"
+    fi
+
+    if [[ -n "${media_dir}" ]]; then
+        bashio::log.info \
+            "Supervisor media mount will target ${media_dir} inside the NFS export"
+    fi
 }
 
 write_proxy_config() {
@@ -211,6 +232,9 @@ main() {
     local mfsgui_log_level
     local mount_enabled
     local mount_point
+    local backup_dir
+    local media_dir
+    local share_dir
     local gui_requests_path
     local gui_root_dir
 
@@ -220,6 +244,9 @@ main() {
     master_subfolder="$(bashio::config 'master_subfolder')"
     master_password="$(bashio::config 'master_password')"
     mount_point="$(bashio::config 'mount_point')"
+    backup_dir="$(bashio::config 'backup_dir')"
+    media_dir="$(bashio::config 'media_dir')"
+    share_dir="$(bashio::config 'share_dir')"
     mount_enabled="$(bashio::config 'mount_enabled')"
     delayed_init="$(bashio::config 'delayed_init')"
     mfsgui_log_level="$(to_mfsgui_log_level "${log_level}")"
@@ -228,7 +255,7 @@ main() {
 
     bashio::log.info "Preparing MooseFS runtime configuration"
     bashio::log.info "Mount point: ${mount_point}"
-    log_mount_strategy "${mount_point}"
+    log_mount_strategy "${mount_point}" "${backup_dir}" "${media_dir}" "${share_dir}"
 
     if [[ -n "${gui_requests_path}" && -n "${gui_root_dir}" ]]; then
         bashio::log.info \
@@ -271,7 +298,7 @@ main() {
     write_proxy_config
 
     bashio::log.info \
-        "Configured NFSv4 export for ${mount_point}; clients can mount the add-on using server:/ on tcp/2049 once MooseFS is live"
+        "Configured NFSv4 export for ${mount_point}; Supervisor mount sync will manage share/media/backup mounts from configured subdirectories once MooseFS is live"
 
     if is_true "${mount_enabled}" && [[ ! -e /dev/fuse ]]; then
         bashio::log.error "/dev/fuse is not available; the MooseFS mount service will keep retrying until it appears"

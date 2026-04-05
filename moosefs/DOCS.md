@@ -14,8 +14,9 @@ the client mount is down or still reconnecting.
   via `/mfs.cgi` for the `OPEN WEB UI` button.
 - Mounts MooseFS with `mfsmount` into a writable path that defaults to
   `/mnt/mfs` inside the add-on container.
-- Exports the MooseFS mount over NFSv4 on TCP port `2049` so clients can mount
-  it explicitly.
+- Exports the MooseFS mount over NFSv4 on TCP port `2049`.
+- Automatically registers Home Assistant Supervisor network storage mounts for
+  `share`, `media`, and `backup` when their configured subfolders are enabled.
 - Keeps retrying the mount in the background instead of failing the whole
   add-on startup.
 
@@ -36,6 +37,9 @@ master_port: 9421
 master_subfolder: /
 master_password: ""
 mount_point: /mnt/mfs
+backup_dir: ""
+media_dir: ""
+share_dir: ""
 mount_enabled: true
 delayed_init: true
 ```
@@ -75,6 +79,36 @@ propagate the FUSE mount back through a Home Assistant host bind.
 
 If you change `mount_point`, the NFS export follows that exact internal path.
 
+### Option: `backup_dir`
+
+Relative directory inside the mounted MooseFS tree to register as the Home
+Assistant `backup` mount.
+
+Example: `backups`
+
+Leave empty to disable the Home Assistant backup mount.
+
+### Option: `media_dir`
+
+Relative directory inside the mounted MooseFS tree to register as the Home
+Assistant `media` mount.
+
+Example: `plex/movies`
+
+Leave empty to disable the Home Assistant media mount.
+
+### Option: `share_dir`
+
+Relative directory inside the mounted MooseFS tree to register as the Home
+Assistant `share` mount.
+
+Default: empty, which means the root of the MooseFS export.
+
+Examples:
+
+- `""` maps Home Assistant `share` to the root of `/mnt/mfs`
+- `homeassistant/share` maps Home Assistant `share` to `/mnt/mfs/homeassistant/share`
+
 ### Option: `mount_enabled`
 
 Enables or disables the MooseFS client mount loop. When disabled, the GUI still
@@ -93,11 +127,39 @@ resilient.
 - `OPEN WEB UI`: goes directly to `http://<home-assistant-host>:9425/mfs.cgi`.
 - NFSv4 export root: `server:/` on TCP `2049`, backed by the internal
   MooseFS mount at `/mnt/mfs`.
+- Home Assistant `share`, `media`, and `backup` storage can be auto-mounted by
+  Supervisor from configured subdirectories inside that NFS export.
 
-## Mounting Over NFS
+## Home Assistant Storage Mapping
+
+This add-on keeps one internal NFSv4 export rooted at the MooseFS mount point
+and then asks Supervisor to mount selected subdirectories back into Home
+Assistant storage.
+
+Example:
+
+```yaml
+share_dir: ""
+media_dir: plex/movies
+backup_dir: backups
+```
+
+That results in:
+
+- Supervisor mount `moosefs_share` using the root of `/mnt/mfs`
+- Supervisor mount `moosefs_media` using `/mnt/mfs/plex/movies`
+- Supervisor mount `moosefs_backup` using `/mnt/mfs/backups`
+
+If `backup_dir` or `media_dir` are blank, those Home Assistant mounts are not
+created. `share_dir` defaults to the root of the MooseFS tree.
+
+Home Assistant exposes these as named network storage entries rather than
+replacing the built-in root folders outright.
+
+## Manual NFS Mounting
 
 On another Linux system, or on the Home Assistant host if you have host shell
-access, mount the add-on export with:
+access, you can still mount the add-on export manually with:
 
 ```sh
 mkdir -p /mnt/mfs
@@ -119,6 +181,8 @@ trusted clients only.
 - This add-on needs `/dev/fuse`, `SYS_ADMIN`, and a custom AppArmor profile
   because the MooseFS client uses FUSE mounts and the NFS export mounts
   `rpc_pipefs` and `nfsd`.
+- This add-on also needs Supervisor API access so it can create and update the
+  Home Assistant network storage mounts that point at its own NFS export.
 - If the mount fails, the add-on keeps the web UI alive and retries the mount
   every 15 seconds.
 - The add-on logs `ls -lhtr` output for the mount point after the MooseFS mount
@@ -126,6 +190,8 @@ trusted clients only.
   actually see files there.
 - The add-on waits for MooseFS to mount and then publishes the same path over
   NFSv4 using `exportfs`, `rpc.idmapd`, and `rpc.nfsd`.
+- After NFS comes up, the add-on reconciles three managed Supervisor mount
+  names: `moosefs_share`, `moosefs_media`, and `moosefs_backup`.
 - If `master_host` is empty or cannot be resolved from the add-on container,
   the add-on leaves the GUI running and skips mount attempts until the setting
   is corrected.

@@ -36,11 +36,17 @@ cleanup() {
 }
 
 main() {
+    local backup_dir
+    local media_dir
     local mount_enabled
     local mount_point
+    local share_dir
 
+    backup_dir="$(bashio::config 'backup_dir')"
+    media_dir="$(bashio::config 'media_dir')"
     mount_enabled="$(bashio::config 'mount_enabled')"
     mount_point="$(bashio::config 'mount_point')"
+    share_dir="$(bashio::config 'share_dir')"
 
     if ! is_true "${mount_enabled}"; then
         bashio::log.notice "NFS export is disabled because the MooseFS mount loop is disabled"
@@ -69,6 +75,16 @@ main() {
     # Serve NFSv4 only over TCP. rpc.nfsd takes the trailing "8" as the number
     # of server threads to start.
     rpc.nfsd -N 3 -U 8
+
+    if ! python3 /usr/bin/moosefs-supervisor-mounts.py \
+        "${mount_point}" \
+        "${share_dir}" \
+        "${media_dir}" \
+        "${backup_dir}"; then
+        bashio::log.warning \
+            "Supervisor mount synchronization failed; the NFSv4 export is still live on tcp/2049"
+    fi
+
     wait "${idmapd_pid}"
 }
 main "$@"

@@ -11,6 +11,8 @@ ingress: true
 ingress_port: 8099
 ingress_entry: /mfs.cgi
 apparmor: true
+hassio_api: true
+hassio_role: admin
 panel_icon: mdi:cow
 webui: http://[HOST]:[PORT:9425]/mfs.cgi
 panel_title: MooseFS
@@ -34,6 +36,9 @@ options:
   master_subfolder: /
   master_password: ""
   mount_point: /mnt/mfs
+  backup_dir: ""
+  media_dir: ""
+  share_dir: ""
   mount_enabled: true
   delayed_init: true
 schema:
@@ -43,5 +48,8 @@ schema:
   master_subfolder: match(^/.*$)
   master_password: str
   mount_point: match(^/.+$)
+  backup_dir: str
+  media_dir: str
+  share_dir: str
   mount_enabled: bool
   delayed_init: bool
