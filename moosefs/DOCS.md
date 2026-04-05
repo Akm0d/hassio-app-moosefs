@@ -14,7 +14,8 @@ the client mount is down or still reconnecting.
   via `/mfs.cgi` for the `OPEN WEB UI` button.
 - Mounts MooseFS with `mfsmount` into a writable path that defaults to
   `/mnt/mfs` inside the add-on container.
-- Exports the MooseFS mount over NFSv4 on TCP port `2049`.
+- Runs on the Home Assistant host network for stable host-facing ports.
+- Exports the MooseFS mount over NFSv4 on host TCP port `2049`.
 - Automatically registers Home Assistant Supervisor network storage mounts for
   `share`, `media`, and `backup` when their configured subfolders are enabled.
 - Keeps retrying the mount in the background instead of failing the whole
@@ -125,9 +126,9 @@ resilient.
 ## Access Paths
 
 - Home Assistant sidebar tab: goes through Home Assistant Ingress to the
-  `lighttpd` proxy on `8099`.
+  `lighttpd` proxy on host port `8099`.
 - `OPEN WEB UI`: goes directly to `http://<home-assistant-host>:9425/mfs.cgi`.
-- NFSv4 export root: `server:/` on TCP `2049`, backed by the internal
+- NFSv4 export root: `server:/` on host TCP `2049`, backed by the internal
   MooseFS mount at `/mnt/mfs`.
 - Home Assistant `share`, `media`, and `backup` storage can be auto-mounted by
   Supervisor from configured subdirectories inside that NFS export.
@@ -136,7 +137,9 @@ resilient.
 
 This add-on keeps one internal NFSv4 export rooted at the MooseFS mount point
 and then asks Supervisor to mount selected subdirectories back into Home
-Assistant storage.
+Assistant storage. Because the add-on uses `host_network: true`, these
+Supervisor-managed mounts target `127.0.0.1:2049` on the Home Assistant host
+instead of a changing container IP.
 
 Example:
 
@@ -179,11 +182,27 @@ The NFS export is read-write and intentionally uses `no_root_squash` so a root
 client can manage files normally. Restrict network access to port `2049` to
 trusted clients only.
 
+### Manual Storage UI Values
+
+When adding this export manually in `Settings > System > Storage`:
+
+- `Protocol`: `NFS`
+- `Server`: use the Home Assistant host IP/hostname, or `127.0.0.1` because
+  the add-on now runs on the host network
+- `Remote share path`: `/` for the MooseFS root, `/backups` for
+  `/mnt/mfs/backups`, `/plex/movies` for `/mnt/mfs/plex/movies`, and so on
+
+If you want to manage a given storage target manually in the UI, leave the
+matching add-on option blank so the automatic Supervisor mount sync does not
+also try to manage it.
+
 ## Notes
 
 - This add-on needs `/dev/fuse`, `SYS_ADMIN`, and a custom AppArmor profile
   because the MooseFS client uses FUSE mounts and the NFS export mounts
   `rpc_pipefs` and `nfsd`.
+- `host_network: true` makes the NFS and GUI ports stable on the Home
+  Assistant host, which avoids depending on a changing add-on container IP.
 - This add-on also needs Supervisor API access so it can create and update the
   Home Assistant network storage mounts that point at its own NFS export.
 - If the mount fails, the add-on keeps the web UI alive and retries the mount
@@ -194,7 +213,8 @@ trusted clients only.
 - The add-on waits for MooseFS to mount and then publishes the same path over
   NFSv4 using `exportfs`, `rpc.idmapd`, and `rpc.nfsd`.
 - After NFS comes up, the add-on reconciles three managed Supervisor mount
-  names: `moosefs_share`, `moosefs_media`, and `moosefs_backup`.
+  names: `moosefs_share`, `moosefs_media`, and `moosefs_backup`, targeting
+  `127.0.0.1:2049`.
 - If `master_host` is empty or cannot be resolved from the add-on container,
   the add-on leaves the GUI running and skips mount attempts until the setting
   is corrected.

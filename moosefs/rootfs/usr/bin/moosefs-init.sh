@@ -165,7 +165,7 @@ log_mount_strategy() {
     local share_dir="${4}"
 
     bashio::log.info \
-        "Mount point ${mount_point} is internal to the add-on container; Home Assistant Ingress uses the lighttpd proxy on port 8099, the raw MooseFS GUI stays on port 9425, and the filesystem is exported over NFSv4 on port 2049"
+        "Mount point ${mount_point} is internal to the add-on container; with host_network enabled, Home Assistant Ingress uses the lighttpd proxy on host port 8099, the raw MooseFS GUI stays on host port 9425, and the filesystem is exported over host port 2049 via NFSv4"
 
     if [[ -n "${share_dir}" ]]; then
         bashio::log.info \
@@ -305,7 +305,7 @@ main() {
     write_proxy_config
 
     bashio::log.info \
-        "Configured NFSv4 export for ${mount_point}; Supervisor mount sync will manage share/media/backup mounts from configured subdirectories once MooseFS is live"
+        "Configured NFSv4 export for ${mount_point}; Supervisor mount sync will manage share/media/backup mounts from configured subdirectories using localhost:2049 once MooseFS is live"
 
     if is_true "${mount_enabled}" && [[ ! -e /dev/fuse ]]; then
         bashio::log.error "/dev/fuse is not available; the MooseFS mount service will keep retrying until it appears"

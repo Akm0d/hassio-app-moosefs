@@ -14,6 +14,7 @@ from pathlib import Path
 SUPERVISOR_URL = "http://supervisor"
 API_TIMEOUT_SECONDS = 15
 MOUNT_API_TIMEOUT_SECONDS = 90
+LOCAL_NFS_SERVER = "127.0.0.1"
 MANAGED_MOUNTS = {
     "share": "moosefs_share",
     "media": "moosefs_media",
@@ -119,14 +120,6 @@ def api_request(
     return parsed
 
 
-def get_mount_server(token: str) -> str:
-    addon_info = api_request(token, "GET", "/addons/self/info")
-    ip_address = (addon_info or {}).get("ip_address", "").strip()
-    if not ip_address:
-        raise RuntimeError("Supervisor did not provide an add-on ip_address for NFS mount registration")
-    return ip_address
-
-
 def mount_payload(name: str, usage: str, server: str, path: str) -> dict:
     payload = {
         "usage": usage,
@@ -214,8 +207,7 @@ def main() -> int:
     ensure_directory(mount_point, backup_dir, "backup")
 
     mounts_info = api_request(token, "GET", "/mounts") or {}
-    mount_server = get_mount_server(token)
-    log("INFO", f"Using add-on IP {mount_server} for Supervisor NFS mounts")
+    log("INFO", f"Using local host-network NFS endpoint {LOCAL_NFS_SERVER}:2049 for Supervisor mounts")
     existing_mounts = {
         mount["name"]: mount
         for mount in mounts_info.get("mounts", [])
@@ -245,7 +237,7 @@ def main() -> int:
             existing_mounts,
             name=name,
             usage=usage,
-            server=mount_server,
+            server=LOCAL_NFS_SERVER,
             path=nfs_path(relative_dir),
         )
 
