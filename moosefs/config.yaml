@@ -11,7 +11,7 @@ ingress: true
 ingress_port: 8099
 ingress_entry: /mfs.cgi
 apparmor: true
-host_network: false
+host_network: true
 hassio_api: true
 hassio_role: admin
 panel_icon: mdi:cow

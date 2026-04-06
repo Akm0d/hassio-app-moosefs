@@ -128,18 +128,19 @@ resilient.
 - Home Assistant sidebar tab: goes through Home Assistant Ingress to the
   `lighttpd` proxy on host port `8099`.
 - `OPEN WEB UI`: goes directly to `http://<home-assistant-host>:9425/mfs.cgi`.
-- NFS export root path: `server:/` on host TCP `2049`, backed by the internal
-  MooseFS mount at `/mnt/mfs`.
+- NFS export root path: `127.0.0.1:/` on host TCP `2049`, backed by the
+  internal MooseFS mount at `/mnt/mfs`.
 - Home Assistant `share`, `media`, and `backup` storage can be auto-mounted by
   Supervisor from configured subdirectories inside that NFS export.
 
 ## Home Assistant Storage Mapping
 
 This add-on keeps one internal NFS export rooted at the MooseFS mount point
-and then asks Supervisor to mount selected paths under that NFS root back into Home
-Assistant storage. Because the add-on uses `host_network: true`, these
-Supervisor-managed mounts target `127.0.0.1:2049` on the Home Assistant host
-instead of a changing container IP.
+and then asks Supervisor to mount selected paths under that NFS root back into
+Home Assistant storage. Because the add-on uses `host_network: true`, these
+Supervisor-managed mounts target `127.0.0.1:2049` on the Home Assistant host.
+The export itself is restricted to `127.0.0.1` and `::1`, so LAN clients are
+not allowed to mount it directly.
 
 Example:
 
@@ -164,31 +165,30 @@ replacing the built-in root folders outright.
 
 ## Manual NFS Mounting
 
-On another Linux system, or on the Home Assistant host if you have host shell
-access, you can still mount the add-on export manually with:
+On the Home Assistant host itself, you can still mount the add-on export
+manually with:
 
 ```sh
 mkdir -p /mnt/mfs
-mount -t nfs -o nfsvers=4.2,proto=tcp <home-assistant-host>:/ /mnt/mfs
+mount -t nfs -o nfsvers=4.2,proto=tcp 127.0.0.1:/ /mnt/mfs
 ```
 
 Example:
 
 ```sh
-mount -t nfs -o nfsvers=4.2,proto=tcp hearth.goose-stargazer.ts.net:/ /mnt/mfs
+mount -t nfs -o nfsvers=4.2,proto=tcp 127.0.0.1:/ /mnt/mfs
 ```
 
 The NFS export is read-write and intentionally uses `no_root_squash` so a root
-client can manage files normally. Restrict network access to port `2049` to
-trusted clients only.
+client can manage files normally. The add-on export policy only allows
+loopback clients (`127.0.0.1` and `::1`).
 
 ### Manual Storage UI Values
 
 When adding this export manually in `Settings > System > Storage`:
 
 - `Protocol`: `NFS`
-- `Server`: use the Home Assistant host IP/hostname, or `127.0.0.1` because
-  the add-on now runs on the host network
+- `Server`: `127.0.0.1`
 - `Remote share path`: `/` for the MooseFS root,
   `/backups` for backups, `/plex/movies` for media, and so on
 
