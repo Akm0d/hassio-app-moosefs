@@ -15,4 +15,4 @@ ingress proxy, while `OPEN WEB UI` goes straight to the MooseFS GUI at
 See [the add-on documentation](./moosefs/DOCS.md) for installation and
 configuration details.
 
-<img width="2757" height="1119" alt="image" src="https://github.com/user-attachments/assets/d2836e96-9a1c-40dc-a971-8fa91621640b" />
+<img width="2754" height="914" alt="image" src="https://github.com/user-attachments/assets/b3012574-9ca2-4c1a-986a-551c1ea7a587" />
