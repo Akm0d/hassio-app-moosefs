@@ -16,9 +16,9 @@ API_TIMEOUT_SECONDS = 15
 MOUNT_API_TIMEOUT_SECONDS = 90
 LOCAL_NFS_SERVER = "127.0.0.1"
 MANAGED_MOUNTS = {
-    "share": "moosefs_share",
-    "media": "moosefs_media",
-    "backup": "moosefs_backup",
+    "share": "mfs_share",
+    "media": "mfs_media",
+    "backup": "mfs_backup",
 }
 
 
@@ -225,7 +225,7 @@ def main() -> int:
 
     if backup_dir is None and default_backup_mount == MANAGED_MOUNTS["backup"]:
         api_request(token, "POST", "/mounts/options", {"default_backup_mount": None})
-        log("INFO", "Cleared default backup mount because moosefs_backup is disabled")
+        log("INFO", "Cleared default backup mount because mfs_backup is disabled")
 
     for usage, relative_dir in desired.items():
         name = MANAGED_MOUNTS[usage]
@@ -245,7 +245,7 @@ def main() -> int:
 
         if usage == "backup" and default_backup_mount != name:
             api_request(token, "POST", "/mounts/options", {"default_backup_mount": name})
-            log("INFO", "Set moosefs_backup as the default Home Assistant backup mount")
+            log("INFO", "Set mfs_backup as the default Home Assistant backup mount")
 
     return 0
 

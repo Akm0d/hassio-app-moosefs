@@ -151,9 +151,9 @@ backup_dir: backups
 
 That results in:
 
-- Supervisor mount `moosefs_share` using `/`
-- Supervisor mount `moosefs_media` using `/plex/movies`
-- Supervisor mount `moosefs_backup` using `/backups`
+- Supervisor mount `mfs_share` using `/`
+- Supervisor mount `mfs_media` using `/plex/movies`
+- Supervisor mount `mfs_backup` using `/backups`
 
 If `backup_dir` or `media_dir` are blank, those Home Assistant mounts are not
 created. `share_dir` defaults to the root of the MooseFS tree, and an empty
@@ -213,7 +213,7 @@ also try to manage it.
 - The add-on waits for MooseFS to mount and then publishes the same path over
   NFS using `rpcbind`, `exportfs`, `rpc.mountd`, `rpc.idmapd`, and `rpc.nfsd`.
 - After NFS comes up, the add-on reconciles three managed Supervisor mount
-  names: `moosefs_share`, `moosefs_media`, and `moosefs_backup`, targeting
+  names: `mfs_share`, `mfs_media`, and `mfs_backup`, targeting
   `127.0.0.1:2049` with paths rooted at `/`.
 - If `master_host` is empty or cannot be resolved from the add-on container,
   the add-on leaves the GUI running and skips mount attempts until the setting
