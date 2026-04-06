@@ -14,7 +14,6 @@ from pathlib import Path
 SUPERVISOR_URL = "http://supervisor"
 API_TIMEOUT_SECONDS = 15
 MOUNT_API_TIMEOUT_SECONDS = 90
-LOCAL_NFS_SERVER = "127.0.0.1"
 MANAGED_MOUNTS = {
     "share": "mfs_share",
     "media": "mfs_media",
@@ -135,6 +134,14 @@ def mount_payload(name: str, usage: str, server: str, path: str) -> dict:
     return payload
 
 
+def get_addon_ip(token: str) -> str:
+    addon_info = api_request(token, "GET", "/addons/self/info") or {}
+    ip_address = (addon_info.get("ip_address") or "").strip()
+    if not ip_address:
+        raise RuntimeError("GET /addons/self/info did not return an add-on IP address for NFS mounts")
+    return ip_address
+
+
 def sync_mount(
     token: str,
     existing_mounts: dict,
@@ -206,9 +213,10 @@ def main() -> int:
     ensure_directory(mount_point, backup_dir, "backup")
 
     mounts_info = api_request(token, "GET", "/mounts") or {}
+    mount_server = get_addon_ip(token)
     log(
         "INFO",
-        f"Using local host-network NFS endpoint {LOCAL_NFS_SERVER}:2049 for Supervisor mounts rooted at {mount_point}",
+        f"Using add-on NFS endpoint {mount_server}:2049 for Supervisor mounts rooted at {mount_point}",
     )
     existing_mounts = {
         mount["name"]: mount
@@ -239,7 +247,7 @@ def main() -> int:
             existing_mounts,
             name=name,
             usage=usage,
-            server=LOCAL_NFS_SERVER,
+            server=mount_server,
             path=nfs_path(relative_dir),
         )
 
