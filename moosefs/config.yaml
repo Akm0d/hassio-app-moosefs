@@ -1,6 +1,6 @@
 ---
 name: MooseFS
-version: 0.1
+version: 0.2
 slug: moosefs
 description: Mount a MooseFS share on Home Assistant, expose the MooseFS GUI, and export the mount over NFS
 url: https://github.com/Akm0d/hassio-app-moosefs

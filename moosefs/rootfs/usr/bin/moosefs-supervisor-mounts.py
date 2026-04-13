@@ -135,6 +135,16 @@ def mount_payload(name: str, usage: str, server: str, path: str) -> dict:
     return payload
 
 
+def mount_matches(existing: dict, *, usage: str, server: str, path: str) -> bool:
+    return (
+        existing.get("type") == "nfs"
+        and existing.get("usage") == usage
+        and existing.get("server") == server
+        and existing.get("path") == path
+        and existing.get("read_only") is False
+    )
+
+
 def sync_mount(
     token: str,
     existing_mounts: dict,
@@ -157,6 +167,13 @@ def sync_mount(
             timeout=MOUNT_API_TIMEOUT_SECONDS,
         )
         log("INFO", f"Created Supervisor {usage} mount '{name}' for NFS {server}:{path}")
+        return
+
+    if mount_matches(existing, usage=usage, server=server, path=path) and existing.get("state") == "active":
+        log(
+            "INFO",
+            f"Supervisor {usage} mount '{name}' is already active for NFS {server}:{path}; leaving it mounted",
+        )
         return
 
     api_request(
