@@ -4,7 +4,7 @@ ARG BUILD_FROM=ghcr.io/home-assistant/base:latest
 # hadolint ignore=DL3006
 FROM ${BUILD_FROM} AS builder
 
-ARG MOOSEFS_VERSION=v4.58.4
+ARG MOOSEFS_VERSION=v4.59.2
 
 RUN apk add --no-cache \
     autoconf \
