@@ -1,4 +1,5 @@
-ARG BUILD_FROM=ghcr.io/hassio-addons/base:20.0.1
+#ARG BUILD_FROM=ghcr.io/hassio-addons/base:20.0.1
+ARG BUILD_FROM=ghcr.io/home-assistant/base:latest
 
 # hadolint ignore=DL3006
 FROM ${BUILD_FROM} AS builder
@@ -86,7 +87,7 @@ LABEL \
     io.hass.name="${BUILD_NAME}" \
     io.hass.description="${BUILD_DESCRIPTION}" \
     io.hass.arch="${BUILD_ARCH}" \
-    io.hass.type="addon" \
+    io.hass.type="app" \
     io.hass.version=${BUILD_VERSION} \
     maintainer="Tyler Levy Conde <yonstib@gmail.com>" \
     org.opencontainers.image.title="${BUILD_NAME}" \
